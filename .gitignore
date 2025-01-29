@@ -1,0 +1,13 @@
+# Node.js dependencies
+node_modules/
+yarn-lock.yaml
+dist/
+
+# Editor/OS
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Environment variables
+.env
