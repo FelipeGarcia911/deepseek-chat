@@ -1,65 +1,20 @@
-import { useState } from "react";
-import axios from "axios";
-import { Box, TextField, Button, Typography, Paper } from "@mui/material";
-
-interface Message {
-  text: string;
-  sender: "user" | "bot";
-}
+import { Box } from "@mui/material";
+import Header from "./Header";
+import ChatWindow from "./ChatWindow";
+import ChatInput from "./ChatInput";
+import useChat from "../hooks/useChat";
 
 const Chat = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-
-    const newMessage: Message = { text: input, sender: "user" };
-    setMessages([...messages, newMessage]);
-    setInput("");
-
-    try {
-      const response = await axios.post("http://localhost:3001/chat", { prompt: input });
-      setMessages((prev) => [
-        ...prev,
-        { text: response.data.response, sender: "bot" },
-      ]);
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  };
+  const { chats, currentChatId, sendMessage, createNewChat, selectChat, loading } = useChat();
+  const currentChat = chats.find((chat) => chat.id === currentChatId) || { messages: [] };
 
   return (
-    <Box sx={{ p: 4, maxWidth: 600, mx: "auto" }}>
-      <Typography variant="h4" gutterBottom>
-        Chat con IA
-      </Typography>
-      <Paper sx={{ p: 2, mb: 2, height: 400, overflowY: "auto" }}>
-        {messages.map((msg, index) => (
-          <Typography
-            key={index}
-            sx={{
-              textAlign: msg.sender === "user" ? "right" : "left",
-              bgcolor: msg.sender === "user" ? "primary.light" : "grey.300",
-              p: 1,
-              borderRadius: 1,
-              mb: 1,
-            }}
-          >
-            {msg.text}
-          </Typography>
-        ))}
-      </Paper>
-      <Box sx={{ display: "flex", gap: 2 }}>
-        <TextField
-          fullWidth
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Escribe un mensaje..."
-        />
-        <Button variant="contained" onClick={sendMessage}>
-          Enviar
-        </Button>
+    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw" }}>
+      <Header chats={chats} onSelectChat={selectChat} onNewChat={createNewChat} />
+
+      <Box sx={{ flex: 1, p: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <ChatWindow messages={currentChat.messages} loading={loading} />
+        <ChatInput sendMessage={sendMessage} />
       </Box>
     </Box>
   );
