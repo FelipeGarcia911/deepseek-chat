@@ -3,6 +3,6 @@ import chatRoutes from "./ChatRoutes";
 
 const router = express.Router();
 
-router.use("/chat", chatRoutes);
+router.use("/chats", chatRoutes);
 
 export default router;

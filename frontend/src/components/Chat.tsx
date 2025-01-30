@@ -1,21 +1,24 @@
-import { Box } from "@mui/material";
-import Header from "./Header";
+import { Box, CircularProgress } from "@mui/material";
 import ChatWindow from "./ChatWindow";
 import ChatInput from "./ChatInput";
 import useChat from "../hooks/useChat";
 
-const Chat = () => {
-  const { chats, currentChatId, sendMessage, createNewChat, selectChat, loading } = useChat();
-  const currentChat = chats.find((chat) => chat.id === currentChatId) || { messages: [] };
+interface ChatProps {
+  id: string;
+}
+
+const Chat = ({ id }: ChatProps) => {
+  const { chat, sendMessage, loading } = useChat(id);
+  console.log("🚀 ~ Chat ~ chat:", chat);
+
+  if (!id) return <Box sx={{ p: 4 }}>⚠️ No hay ID de chat válido.</Box>;
+  if (loading) <CircularProgress />;
+  if (!chat) return <Box sx={{ p: 4 }}>❌ Chat no encontrado.</Box>;
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh", width: "100vw" }}>
-      <Header chats={chats} onSelectChat={selectChat} onNewChat={createNewChat} />
-
-      <Box sx={{ flex: 1, p: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
-        <ChatWindow messages={currentChat.messages} loading={loading} />
-        <ChatInput sendMessage={sendMessage} />
-      </Box>
+    <Box sx={{ flex: 1, p: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <ChatWindow messages={chat.messages} loading={loading} />
+      <ChatInput sendMessage={sendMessage} />
     </Box>
   );
 };

@@ -1,38 +1,16 @@
-import { useState } from "react";
-import { AppBar, Toolbar, Typography, IconButton } from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
-import Sidebar from "./Sidebar";
+import { AppBar, Toolbar, Typography } from "@mui/material";
 
-interface HeaderProps {
-  chats: { id: string; title: string }[];
-  onSelectChat: (id: string) => void;
-  onNewChat: () => void;
-}
-
-const Header = ({ chats, onSelectChat, onNewChat }: HeaderProps) => {
-  const [open, setOpen] = useState(false);
-
+const Header = () => {
   return (
-    <>
-      <AppBar position="static">
-        <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={() => setOpen(true)}>
-            <MenuIcon />
-          </IconButton>
+    <AppBar position="static">
+      <Toolbar>
+        <a href="/" style={{ textDecoration: "none", color: "white" }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Chat con IA
           </Typography>
-        </Toolbar>
-      </AppBar>
-
-      <Sidebar
-        open={open}
-        onClose={() => setOpen(false)}
-        chats={chats}
-        onSelectChat={onSelectChat}
-        onNewChat={onNewChat}
-      />
-    </>
+        </a>
+      </Toolbar>
+    </AppBar>
   );
 };
 

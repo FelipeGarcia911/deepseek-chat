@@ -3,7 +3,24 @@ import ChatService from "../services/ChatService";
 import OllamaService from "../services/OllamaService";
 
 class ChatController {
-  async handleChatRequest(req: Request, res: Response): Promise<void> {
+  getChats(req: Request, res: Response) {
+    res.json(ChatService.getChats());
+  }
+
+  createChat(req: Request, res: Response) {
+    const { title } = req.body;
+    if (!title) res.status(400).json({ error: "El título es obligatorio." });
+
+    const newChat = ChatService.createChat(title);
+    res.json(newChat);
+  }
+
+  getChatHistory(req: Request, res: Response) {
+    const { chatId } = req.params;
+    res.json(ChatService.getChatHistory(chatId));
+  }
+
+  async sendMessage(req: Request, res: Response) {
     try {
       const { chatId, message } = req.body;
 
@@ -14,22 +31,21 @@ class ChatController {
 
       console.log(`🔹 Recibido mensaje en chat ${chatId}: ${message}`);
 
-      // Guardar mensaje del usuario en el historial
       ChatService.saveMessage(chatId, "user", message);
 
-      // Obtener historial del chat
-      const chatHistory = ChatService.getChatHistory(chatId);
+      const chatHistory = ChatService.getChatHistory(chatId).map((msg) => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text,
+      }));
 
-      // Enviar historial completo a Ollama
-      const botResponse = await OllamaService.sendMessage(message);
-      console.log("🚀 ~ ChatController ~ handleChatRequest ~ botResponse:", botResponse);
+      const botResponse = await OllamaService.sendMessageWithHistory(chatHistory);
+      console.log("🚀 ~ ChatController ~ sendMessage ~ botResponse:", botResponse);
 
-      // Guardar respuesta del bot
       ChatService.saveMessage(chatId, "bot", botResponse);
 
       res.json({ response: botResponse });
-    } catch (error: any) {
-      console.error("❌ Error en ChatController:", error.message);
+    } catch (error) {
+      console.error("❌ Error en ChatController:", error);
       res.status(500).json({ error: "Error en el servidor." });
     }
   }

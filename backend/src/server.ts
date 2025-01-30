@@ -1,15 +1,24 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
-import routes from "./routes";
-
-dotenv.config();
+import router from "./routes";
 
 const app = express();
 app.use(express.json());
-app.use(cors());
 
-app.use("/api", routes);
+// 📌 Permitir todas las conexiones CORS
+app.use(cors({ origin: "*" }));
+
+app.use((req, res, next) => {
+  console.log(`📡 ${req.method} ${req.url}`);
+  next();
+});
+
+app.use("/api", router);
+
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("❌ Error en el servidor:", err);
+  res.status(500).json({ error: "Error interno del servidor" });
+});
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

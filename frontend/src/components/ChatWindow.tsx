@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import ChatSkeleton from "./ChatSkeleton";
 
 interface ChatWindowProps {
-  messages: Message[];
+  messages?: Message[];
   loading: boolean;
 }
 
@@ -26,10 +26,10 @@ const ChatWindow = ({ messages, loading }: ChatWindowProps) => {
         borderRadius: 2,
         display: "flex",
         flexDirection: "column",
-        gap: 1, // Espaciado entre mensajes
+        gap: 1,
       }}
     >
-      {messages.map((msg, index) => (
+      {messages?.map((msg, index) => (
         <Box
           key={index}
           sx={{

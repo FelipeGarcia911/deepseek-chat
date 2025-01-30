@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL = "http://localhost:3001/api/chats";
 
 export interface Message {
   text: string;
@@ -13,24 +13,52 @@ export interface Chat {
   messages: Message[];
 }
 
-// Obtener chats guardados
-export const getSavedChats = (): Chat[] => {
-  const savedChats = localStorage.getItem("chats");
-  return savedChats ? JSON.parse(savedChats) : [];
-};
+class ChatService {
+  private apiUrl: string;
 
-// Guardar chats en localStorage
-export const saveChats = (chats: Chat[]) => {
-  localStorage.setItem("chats", JSON.stringify(chats));
-};
-
-// Enviar mensaje al backend
-export const sendMessageToAPI = async (chatId: string, message: string): Promise<string> => {
-  try {
-    const response = await axios.post(`${API_URL}/chat`, { chatId, message });
-    return response.data.response;
-  } catch (error) {
-    console.error("Error en la API:", error);
-    return "Error al conectar con el servidor.";
+  constructor(apiUrl: string) {
+    this.apiUrl = apiUrl;
   }
-};
+
+  async fetchChats(): Promise<Chat[]> {
+    try {
+      const response = await axios.get(`${this.apiUrl}/list`);
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error al obtener chats:", error);
+      return [];
+    }
+  }
+
+  async createChat(title: string): Promise<Chat | null> {
+    try {
+      const response = await axios.post(`${this.apiUrl}/new`, { title });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error al crear un chat:", error);
+      return null;
+    }
+  }
+
+  async getChatHistory(chatId: string): Promise<Message[]> {
+    try {
+      const response = await axios.get(`${this.apiUrl}/${chatId}/history`);
+      return response.data;
+    } catch (error) {
+      console.error(`❌ Error al obtener el historial del chat ${chatId}:`, error);
+      return [];
+    }
+  }
+
+  async sendMessage(chatId: string, message: string): Promise<string> {
+    try {
+      const response = await axios.post(`${this.apiUrl}/${chatId}/message`, { message, chatId });
+      return response.data.response;
+    } catch (error) {
+      console.error(`❌ Error al enviar mensaje al chat ${chatId}:`, error);
+      return "Error al conectar con el servidor.";
+    }
+  }
+}
+
+export default new ChatService(API_URL);
