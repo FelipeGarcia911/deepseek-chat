@@ -1,26 +1,30 @@
+import React from "react";
+import { useParams } from "react-router-dom";
 import { Box, CircularProgress } from "@mui/material";
 import ChatWindow from "./ChatWindow";
 import ChatInput from "./ChatInput";
 import useChat from "../hooks/useChat";
 
-interface ChatProps {
-  id: string;
-}
-
-const Chat = ({ id }: ChatProps) => {
-  const { chat, sendMessage, loading } = useChat(id);
-  console.log("🚀 ~ Chat ~ chat:", chat);
+const Chat = () => {
+  const { id } = useParams<{ id: string }>();
+  const { chat, sendMessage, isLoadingChats, isSendingMessage } = useChat(id || "");
 
   if (!id) return <Box sx={{ p: 4 }}>⚠️ No hay ID de chat válido.</Box>;
-  if (loading) <CircularProgress />;
-  if (!chat) return <Box sx={{ p: 4 }}>❌ Chat no encontrado.</Box>;
 
   return (
     <Box sx={{ flex: 1, p: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <ChatWindow messages={chat.messages} loading={loading} />
-      <ChatInput sendMessage={sendMessage} />
+      {isLoadingChats ? (
+        <CircularProgress />
+      ) : chat ? (
+        <>
+          <ChatWindow messages={chat.messages} loading={isSendingMessage} />
+          <ChatInput sendMessage={sendMessage} />
+        </>
+      ) : (
+        <Box sx={{ p: 4 }}>❌ Chat no encontrado.</Box>
+      )}
     </Box>
   );
 };
 
-export default Chat;
+export default React.memo(Chat);

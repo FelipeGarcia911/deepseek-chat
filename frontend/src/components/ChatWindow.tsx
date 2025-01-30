@@ -1,6 +1,8 @@
 import { Box, Paper, Typography } from "@mui/material";
 import { Message } from "../services/Chat";
 import { useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import ChatSkeleton from "./ChatSkeleton";
 
 interface ChatWindowProps {
@@ -37,19 +39,23 @@ const ChatWindow = ({ messages, loading }: ChatWindowProps) => {
             justifyContent: msg.sender === "user" ? "flex-end" : "flex-start",
           }}
         >
-          <Typography
+          <Box
             sx={{
               bgcolor: msg.sender === "user" ? "primary.light" : "grey.300",
               color: msg.sender === "user" ? "white" : "black",
               p: 1.5,
               borderRadius: "12px",
-              maxWidth: "60%",
+              maxWidth: "80%",
               textAlign: msg.sender === "user" ? "right" : "left",
               boxShadow: 1,
             }}
           >
-            {msg.text}
-          </Typography>
+            {msg.sender === "bot" ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+            ) : (
+              <Typography>{msg.text}</Typography>
+            )}
+          </Box>
         </Box>
       ))}
 

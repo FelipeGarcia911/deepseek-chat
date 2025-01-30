@@ -6,7 +6,7 @@
   "author": "Felipe Garcia",
   "license": "MIT",
   "scripts": {
-    "dev": "nodemon src/server.ts",
+    "dev": "nodemon src/server.ts --ignore 'logs/*'",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\""
   },
   "dependencies": {

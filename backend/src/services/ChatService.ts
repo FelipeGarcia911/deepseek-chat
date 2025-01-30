@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const filePath = path.join(__dirname, "../../chats.json");
+const filePath = path.join(__dirname, "../logs/chats.json");
 
 interface Message {
   text: string;

@@ -1,11 +1,13 @@
-import { Box, Skeleton } from "@mui/material";
+import { Box, Skeleton, useTheme } from "@mui/material";
 
 const ChatSkeleton = () => {
+  const theme = useTheme();
+
   return (
     <Box
       sx={{
         alignSelf: "flex-start",
-        bgcolor: "grey.300",
+        bgcolor: theme.palette.background.paper,
         borderRadius: 2,
         boxShadow: 1,
         display: "flex",
@@ -17,9 +19,9 @@ const ChatSkeleton = () => {
         width: "60%",
       }}
     >
-      <Skeleton variant="text" width="60%" />
-      <Skeleton variant="text" width="80%" />
-      <Skeleton variant="text" width="40%" />
+      <Skeleton variant="text" width="60%" sx={{ bgcolor: theme.palette.grey[500] }} />
+      <Skeleton variant="text" width="80%" sx={{ bgcolor: theme.palette.grey[600] }} />
+      <Skeleton variant="text" width="40%" sx={{ bgcolor: theme.palette.grey[700] }} />
     </Box>
   );
 };

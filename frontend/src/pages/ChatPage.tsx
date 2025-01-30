@@ -1,10 +1,8 @@
-import { useParams } from "react-router-dom";
+import React from "react";
 import Chat from "../components/Chat";
 
 const ChatPage = () => {
-  const { id } = useParams<{ id: string }>();
-
-  return <Chat id={id} />;
+  return <Chat />;
 };
 
-export default ChatPage;
+export default React.memo(ChatPage);
