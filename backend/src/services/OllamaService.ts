@@ -1,17 +1,30 @@
 import axios from "axios";
+import dotenv from "dotenv";
+
+dotenv.config(); // ✅ Ensure env variables are loaded
 
 interface OllamaMessage {
   role: string;
   content: string;
 }
+
 class OllamaService {
-  private readonly OLLAMA_API_URL = "http://localhost:11434/api/chat";
-  private readonly model = "deepseek-r1:7b";
+  private readonly OLLAMA_API_URL: string;
+  private readonly MODEL_NAME: string;
+
+  constructor(apiUrl?: string, modelName?: string) {
+    this.OLLAMA_API_URL = apiUrl || process.env.OLLAMA_API_URL || "";
+    this.MODEL_NAME = modelName || process.env.MODEL_NAME || "";
+
+    if (!this.OLLAMA_API_URL || !this.MODEL_NAME) {
+      throw new Error("OLLAMA_API_URL and MODEL_NAME are required environment variables.");
+    }
+  }
 
   private getInitialPrompt() {
     return {
       role: "system",
-      content: "Eres un asistente de IA. Responde de manera clara y concisa.",
+      content: "You are an AI assistant. Provide clear and concise responses.",
     };
   }
 
@@ -26,7 +39,7 @@ class OllamaService {
   async sendMessageWithHistory(chatHistory: OllamaMessage[]) {
     try {
       if (!chatHistory || chatHistory.length === 0) {
-        throw new Error("El historial del chat está vacío.");
+        throw new Error("Chat history cannot be empty.");
       }
 
       if (this.isFirstMessage(chatHistory)) {
@@ -34,38 +47,38 @@ class OllamaService {
       }
 
       const response = await axios.post(this.OLLAMA_API_URL, {
-        model: this.model,
+        model: this.MODEL_NAME,
         messages: chatHistory,
         stream: false,
       });
 
-      if (!response.data || !response.data.message || !response.data.message.content) {
-        throw new Error("Ollama no devolvió una respuesta válida.");
+      if (!response.data?.message?.content) {
+        throw new Error("Ollama did not return a valid response.");
       }
 
       return this.cleanResponse(response.data.message.content);
     } catch (error: any) {
-      console.error("❌ Error al conectar con Ollama:", error.message);
-      throw new Error("Error en la comunicación con Ollama.");
+      console.error("❌ Error connecting to Ollama:", error.message);
+      throw new Error("Error communicating with Ollama.");
     }
   }
 
   async sendSimpleMessage(prompt: string) {
     try {
       const response = await axios.post(this.OLLAMA_API_URL, {
-        model: this.model,
+        model: this.MODEL_NAME,
         prompt: prompt,
         stream: false,
       });
 
-      if (!response.data || !response.data.response) {
-        throw new Error("Ollama no devolvió una respuesta válida.");
+      if (!response.data?.response) {
+        throw new Error("Ollama did not return a valid response.");
       }
 
       return response.data.response;
     } catch (error: any) {
-      console.error("❌ Error al conectar con Ollama:", error.message);
-      throw new Error("Error en la comunicación con Ollama.");
+      console.error("❌ Error connecting to Ollama:", error.message);
+      throw new Error("Error communicating with Ollama.");
     }
   }
 }

@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 
-const CHAT_STORAGE_PATH = path.join(__dirname, "../logs/chats.json");
+const CHAT_STORAGE_PATH = path.join(__dirname, process.env.LOGS_PATH || "../logs/chats.json");
 
 interface Message {
   text: string;
