@@ -3,50 +3,86 @@ import ChatService from "../services/ChatService";
 import OllamaService from "../services/OllamaService";
 
 class ChatController {
-  getChats(req: Request, res: Response) {
-    res.json(ChatService.getChats());
+  async getChats(req: Request, res: Response): Promise<void> {
+    try {
+      const chats = await ChatService.getChats();
+      res.json(chats);
+    } catch (error) {
+      console.error("❌ Error retrieving chats:", error);
+      res.status(500).json({ error: "Failed to fetch chats." });
+    }
   }
 
-  createChat(req: Request, res: Response) {
-    const { title } = req.body;
-    if (!title) res.status(400).json({ error: "El título es obligatorio." });
+  async createChat(req: Request, res: Response): Promise<void> {
+    try {
+      const { title } = req.body;
+      if (!title) {
+        res.status(400).json({ error: "Chat title is required." });
+        return;
+      }
 
-    const newChat = ChatService.createChat(title);
-    res.json(newChat);
+      const newChat = await ChatService.createChat(title);
+      res.status(201).json(newChat);
+    } catch (error) {
+      console.error("❌ Error creating chat:", error);
+      res.status(500).json({ error: "Failed to create chat." });
+    }
   }
 
-  getChatHistory(req: Request, res: Response) {
-    const { chatId } = req.params;
-    res.json(ChatService.getChatHistory(chatId));
+  async getChatHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const { chatId } = req.params;
+      const history = await ChatService.getChatHistory(chatId);
+
+      res.json(history);
+    } catch (error) {
+      console.error("❌ Error retrieving chat history:", error);
+      res.status(500).json({ error: "Failed to retrieve chat history." });
+    }
   }
 
-  async sendMessage(req: Request, res: Response) {
+  async sendMessage(req: Request, res: Response): Promise<void> {
     try {
       const { chatId, message } = req.body;
 
       if (!chatId || !message) {
-        res.status(400).json({ error: "chatId y message son requeridos." });
+        res.status(400).json({ error: "Both chatId and message are required." });
         return;
       }
 
-      console.log(`🔹 Recibido mensaje en chat ${chatId}: ${message}`);
+      console.info(`📩 Received message in chat ${chatId}: ${message}`);
 
-      ChatService.saveMessage(chatId, "user", message);
+      // Save the user's message
+      await ChatService.saveMessage(chatId, "user", message);
 
-      const chatHistory = ChatService.getChatHistory(chatId).map((msg) => ({
+      // Retrieve the chat history to maintain context
+      const chatHistory = (await ChatService.getChatHistory(chatId)).map((msg) => ({
         role: msg.sender === "user" ? "user" : "assistant",
         content: msg.text,
       }));
 
+      // Send the chat history to the AI model
       const botResponse = await OllamaService.sendMessageWithHistory(chatHistory);
-      console.log("🚀 ~ ChatController ~ sendMessage ~ botResponse:", botResponse);
+      console.info("🤖 AI Response:", botResponse);
 
-      ChatService.saveMessage(chatId, "bot", botResponse);
+      // Save the AI's response
+      await ChatService.saveMessage(chatId, "bot", botResponse);
 
       res.json({ response: botResponse });
     } catch (error) {
-      console.error("❌ Error en ChatController:", error);
-      res.status(500).json({ error: "Error en el servidor." });
+      console.error("❌ Error in sendMessage:", error);
+      res.status(500).json({ error: "Server error while processing the message." });
+    }
+  }
+
+  async deleteChat(req: Request, res: Response): Promise<void> {
+    try {
+      const { chatId } = req.params;
+      await ChatService.deleteChat(chatId);
+      res.status(200).json({ message: "Chat deleted successfully." });
+    } catch (error) {
+      console.error("❌ Error deleting chat:", error);
+      res.status(500).json({ error: "Failed to delete chat." });
     }
   }
 }

@@ -40,6 +40,14 @@ class ChatService {
     }
   }
 
+  async deleteChat(chatId: string): Promise<void> {
+    try {
+      await axios.delete(`${this.apiUrl}/${chatId}`);
+    } catch (error) {
+      console.error(`❌ Error al eliminar el chat ${chatId}:`, error);
+    }
+  }
+
   async getChatHistory(chatId: string): Promise<Message[]> {
     try {
       const response = await axios.get(`${this.apiUrl}/${chatId}/history`);

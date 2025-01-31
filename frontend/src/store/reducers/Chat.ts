@@ -16,6 +16,11 @@ export const createChat = createAsyncThunk("chat/createChat", async (title: stri
   return chat;
 });
 
+export const deleteChat = createAsyncThunk("chat/deleteChat", async (chatId: string) => {
+  await ChatService.deleteChat(chatId);
+  return chatId;
+});
+
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
   async ({ chatId, message }: { chatId: string; message: string }, { dispatch }) => {
@@ -52,6 +57,7 @@ const chatSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // FetchChats
       .addCase(fetchChats.pending, (state) => {
         state.isLoadingChats = true;
       })
@@ -63,6 +69,15 @@ const chatSlice = createSlice({
         state.isLoadingChats = false;
       })
 
+      // DeleteChat
+      .addCase(deleteChat.fulfilled, (state, action: PayloadAction<string>) => {
+        state.chats = state.chats.filter((chat) => chat.id !== action.payload);
+      })
+      .addCase(deleteChat.rejected, (_, action) => {
+        console.error("❌ Error deleting chat:", action.payload);
+      })
+
+      // FetchChatHistory
       .addCase(fetchChatHistory.fulfilled, (state, action) => {
         const { chatId, messages } = action.payload;
         const chat = state.chats.find((c) => c.id === chatId);
@@ -71,10 +86,12 @@ const chatSlice = createSlice({
         }
       })
 
+      // CreateChat
       .addCase(createChat.fulfilled, (state, action: PayloadAction<Chat>) => {
         state.chats.push(action.payload);
       })
 
+      // SendMessage
       .addCase(sendMessage.pending, (state) => {
         state.isSendingMessage = true;
       })
