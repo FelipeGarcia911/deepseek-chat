@@ -6,7 +6,7 @@ const Header = () => {
       <Toolbar>
         <a href="/" style={{ textDecoration: "none", color: "white" }}>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Chat con IA
+            Deepseek Chat UI
           </Typography>
         </a>
       </Toolbar>

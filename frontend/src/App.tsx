@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import Layout from "./components/Layout";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
@@ -6,13 +6,12 @@ import Home from "./pages/Home";
 import ChatPage from "./pages/ChatPage";
 import { fetchChats } from "./store/reducers/Chat";
 import { ThemeProvider, CssBaseline } from "@mui/material";
-import { lightTheme, darkTheme } from "./styles/theme";
+import useAutoTheme from "./hooks/useTheme";
 
 function App() {
   const dispatch = useDispatch();
-  const [darkMode] = useState(true);
 
-  const theme = useMemo(() => (darkMode ? darkTheme : lightTheme), [darkMode]);
+  const { theme } = useAutoTheme();
 
   useEffect(() => {
     dispatch(fetchChats());

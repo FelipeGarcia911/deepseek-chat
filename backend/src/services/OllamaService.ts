@@ -24,7 +24,7 @@ class OllamaService {
   private getInitialPrompt() {
     return {
       role: "system",
-      content: "You are an AI assistant. Provide clear and concise responses.",
+      content: `You are a friendly and knowledgeable AI assistant. Your goal is to provide helpful, clear, and concise answers to any question the user asks.`,
     };
   }
 
