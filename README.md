@@ -6,7 +6,7 @@ This guide provides step-by-step instructions to set up and run the AI chatbot p
 
 Before starting, make sure you have the following installed:
 
-- **Node.js** (Recommended: use `nvm` for version management)
+- **Node.js 26.12.1** (run `nvm install` and `nvm use` from the repository root)
 - **pnpm 12.14.0** (install with `npm install --global pnpm@12.14.0`)
 - **Docker** (optional, for running Ollama in a container)
 - **Git** (to clone the repository)

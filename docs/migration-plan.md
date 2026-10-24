@@ -79,3 +79,11 @@ ambas aplicaciones, build y lint del frontend y `tsc --noEmit` del backend.
 Vite avisa de un bundle mayor de 500 kB; no impide compilar y su optimización
 queda fuera de esta migración. Las dependencias directas importadas conservan
 sus versiones anteriores.
+
+## Resultados — etapa 2
+
+Completada con Node 26.12.1: instalaciones congeladas, tipos del backend,
+build y lint del frontend. El backend arrancó con nodemon/ts-node y
+GET /api/chats/list respondió HTTP 200 con un array JSON.
+`@types/node` pasó de 22.12.0 a 26.6.5; sus dependencias transitivas
+se actualizaron con él. No se ha probado una llamada de generación a Ollama.
