@@ -1,7 +1,4 @@
 import fs from "fs/promises";
-import path from "path";
-
-const CHAT_STORAGE_PATH = path.join(__dirname, process.env.LOGS_PATH || "../logs/chats.json");
 
 interface Message {
   text: string;
@@ -17,13 +14,15 @@ interface Chat {
 class ChatService {
   private chats: Chat[] = [];
 
-  constructor() {
-    this.loadChatsFromFile();
+  constructor(private readonly storagePath: string) {}
+
+  async initialize(): Promise<void> {
+    await this.loadChatsFromFile();
   }
 
   private async loadChatsFromFile(): Promise<void> {
     try {
-      const data = await fs.readFile(CHAT_STORAGE_PATH, "utf-8");
+      const data = await fs.readFile(this.storagePath, "utf-8");
       this.chats = JSON.parse(data) || [];
     } catch (error) {
       console.warn("⚠️ No existing chat file found. Starting fresh.");
@@ -33,7 +32,7 @@ class ChatService {
 
   private async saveChatsToFile(): Promise<void> {
     try {
-      await fs.writeFile(CHAT_STORAGE_PATH, JSON.stringify(this.chats, null, 2));
+      await fs.writeFile(this.storagePath, JSON.stringify(this.chats, null, 2));
     } catch (error) {
       console.error("❌ Failed to save chats to file:", error);
     }
@@ -68,4 +67,4 @@ class ChatService {
   }
 }
 
-export default new ChatService();
+export default ChatService;

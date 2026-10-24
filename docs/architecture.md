@@ -1,8 +1,10 @@
 # AI Chat Platform architecture
 
 Date: 2026-10-24. Task: **P0.1** in the [roadmap](roadmap.md).
-The current architecture was checked against revision `660e807`; the target
+The prototype baseline was checked against revision `660e807`; the target
 architecture guides subsequent tasks and has not been implemented yet.
+P0.2 has since separated application construction, composition and process
+startup; see [backend construction and lifecycle](backend-composition.md).
 
 The platform will evolve toward **one API deployed as a modular monolith**,
 with two web clients: public chat and administration. The decision and its
@@ -16,7 +18,7 @@ which do not necessarily correspond to Docker containers. Arrows represent
 communication, with labels describing its purpose. Modules and packages are
 code boundaries; they do not imply independent processes or deployments.
 
-## 1. Current architecture: chat prototype
+## 1. Prototype baseline: chat containers
 
 ```mermaid
 flowchart LR
@@ -40,7 +42,7 @@ The monorepo contains `frontend/`, `backend/`, `packages/ui/` and
 are empty. Components still live in the frontend; the admin application does
 not exist yet. See the [internal package configuration](internal-packages.md).
 
-Evidence of current responsibilities:
+Baseline responsibilities at `660e807` (before P0.2):
 
 | Code                                                                                                                       | Observed behavior                                                                                               |
 | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -58,8 +60,8 @@ the controller reads the identifier from the body.
 
 This does not yet guarantee durability or ordering under concurrency: writes
 replace the full history, and failures can remain hidden. There is no Run
-entity, versioning, RAG, authentication, streaming or tracing. Current logging
-includes chat content; the target policy excludes it by default.
+entity, versioning, RAG, authentication, streaming or tracing. Baseline logging included chat content; P0.2 removes successful message and
+response logging. The target policy requires comprehensive redaction.
 
 ## 2. Target MVP architecture
 
@@ -249,8 +251,9 @@ configuration and authentication tasks and phase 7.
 
 ## 6. Next steps and open decisions
 
-This task produces documentation. P0.2 will separate Express construction from
-startup and make dependency composition explicit; P0.3 will validate
+P0.1 produced this architecture and ADR-001. P0.2 now separates Express
+construction from startup and makes dependency composition explicit;
+P0.3 will validate
 configuration; P0.4–P0.6 will add tests and complete quality gates before domain
 work. The roadmap's task order and phase exit gates remain in effect.
 

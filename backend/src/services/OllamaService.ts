@@ -1,7 +1,4 @@
 import axios from "axios";
-import dotenv from "dotenv";
-
-dotenv.config(); // ✅ Ensure env variables are loaded
 
 interface OllamaMessage {
   role: string;
@@ -12,9 +9,9 @@ class OllamaService {
   private readonly OLLAMA_API_URL: string;
   private readonly MODEL_NAME: string;
 
-  constructor(apiUrl?: string, modelName?: string) {
-    this.OLLAMA_API_URL = apiUrl || process.env.OLLAMA_API_URL || "";
-    this.MODEL_NAME = modelName || process.env.MODEL_NAME || "";
+  constructor(apiUrl: string, modelName: string) {
+    this.OLLAMA_API_URL = apiUrl;
+    this.MODEL_NAME = modelName;
 
     if (!this.OLLAMA_API_URL || !this.MODEL_NAME) {
       throw new Error("OLLAMA_API_URL and MODEL_NAME are required environment variables.");
@@ -83,4 +80,4 @@ class OllamaService {
   }
 }
 
-export default new OllamaService();
+export default OllamaService;

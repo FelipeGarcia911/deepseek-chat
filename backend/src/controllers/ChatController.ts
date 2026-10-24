@@ -1,19 +1,34 @@
 import { Request, Response } from "express";
-import ChatService from "../services/ChatService";
-import OllamaService from "../services/OllamaService";
+import type ChatService from "../services/ChatService";
+import type OllamaService from "../services/OllamaService";
+
+enum ChatServiceMethod {
+  GetChats = "getChats",
+  CreateChat = "createChat",
+  GetChatHistory = "getChatHistory",
+  SaveMessage = "saveMessage",
+  DeleteChat = "deleteChat",
+}
+
+export interface ChatControllerDependencies {
+  chatService: Pick<ChatService, ChatServiceMethod>;
+  ollamaService: Pick<OllamaService, "sendMessageWithHistory">;
+}
 
 class ChatController {
-  async getChats(req: Request, res: Response): Promise<void> {
+  constructor(private readonly dependencies: ChatControllerDependencies) {}
+
+  getChats = async (req: Request, res: Response): Promise<void> => {
     try {
-      const chats = await ChatService.getChats();
+      const chats = await this.dependencies.chatService.getChats();
       res.json(chats);
     } catch (error) {
       console.error("❌ Error retrieving chats:", error);
       res.status(500).json({ error: "Failed to fetch chats." });
     }
-  }
+  };
 
-  async createChat(req: Request, res: Response): Promise<void> {
+  createChat = async (req: Request, res: Response): Promise<void> => {
     try {
       const { title } = req.body;
       if (!title) {
@@ -21,27 +36,27 @@ class ChatController {
         return;
       }
 
-      const newChat = await ChatService.createChat(title);
+      const newChat = await this.dependencies.chatService.createChat(title);
       res.status(201).json(newChat);
     } catch (error) {
       console.error("❌ Error creating chat:", error);
       res.status(500).json({ error: "Failed to create chat." });
     }
-  }
+  };
 
-  async getChatHistory(req: Request, res: Response): Promise<void> {
+  getChatHistory = async (req: Request, res: Response): Promise<void> => {
     try {
       const { chatId } = req.params;
-      const history = await ChatService.getChatHistory(chatId);
+      const history = await this.dependencies.chatService.getChatHistory(chatId);
 
       res.json(history);
     } catch (error) {
       console.error("❌ Error retrieving chat history:", error);
       res.status(500).json({ error: "Failed to retrieve chat history." });
     }
-  }
+  };
 
-  async sendMessage(req: Request, res: Response): Promise<void> {
+  sendMessage = async (req: Request, res: Response): Promise<void> => {
     try {
       const { chatId, message } = req.body;
 
@@ -50,41 +65,38 @@ class ChatController {
         return;
       }
 
-      console.info(`📩 Received message in chat ${chatId}: ${message}`);
-
       // Save the user's message
-      await ChatService.saveMessage(chatId, "user", message);
+      await this.dependencies.chatService.saveMessage(chatId, "user", message);
 
       // Retrieve the chat history to maintain context
-      const chatHistory = (await ChatService.getChatHistory(chatId)).map((msg) => ({
+      const chatHistory = (await this.dependencies.chatService.getChatHistory(chatId)).map((msg) => ({
         role: msg.sender === "user" ? "user" : "assistant",
         content: msg.text,
       }));
 
       // Send the chat history to the AI model
-      const botResponse = await OllamaService.sendMessageWithHistory(chatHistory);
-      console.info("🤖 AI Response:", botResponse);
+      const botResponse = await this.dependencies.ollamaService.sendMessageWithHistory(chatHistory);
 
       // Save the AI's response
-      await ChatService.saveMessage(chatId, "bot", botResponse);
+      await this.dependencies.chatService.saveMessage(chatId, "bot", botResponse);
 
       res.json({ response: botResponse });
     } catch (error) {
       console.error("❌ Error in sendMessage:", error);
       res.status(500).json({ error: "Server error while processing the message." });
     }
-  }
+  };
 
-  async deleteChat(req: Request, res: Response): Promise<void> {
+  deleteChat = async (req: Request, res: Response): Promise<void> => {
     try {
       const { chatId } = req.params;
-      await ChatService.deleteChat(chatId);
+      await this.dependencies.chatService.deleteChat(chatId);
       res.status(200).json({ message: "Chat deleted successfully." });
     } catch (error) {
       console.error("❌ Error deleting chat:", error);
       res.status(500).json({ error: "Failed to delete chat." });
     }
-  }
+  };
 }
 
-export default new ChatController();
+export default ChatController;

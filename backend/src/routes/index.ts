@@ -1,8 +1,9 @@
 import express from "express";
-import chatRoutes from "./ChatRoutes";
+import type ChatController from "../controllers/ChatController";
+import { createChatRouter } from "./ChatRoutes";
 
-const router = express.Router();
-
-router.use("/chats", chatRoutes);
-
-export default router;
+export function createRouter(controller: ChatController) {
+  const router = express.Router();
+  router.use("/chats", createChatRouter(controller));
+  return router;
+}

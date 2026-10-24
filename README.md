@@ -96,16 +96,17 @@ pnpm --filter "backend..." --parallel dev
 
 ## Workspace commands
 
-| Command | Purpose |
-| --- | --- |
-| `pnpm install --frozen-lockfile` | Install both applications using the root lockfile |
-| `pnpm typecheck` | Check TypeScript in both applications |
-| `pnpm lint` | Run the frontend ESLint rules (backend has no ESLint configuration) |
-| `pnpm build` | Compile the backend into backend/dist and bundle the frontend into frontend/dist |
-| `pnpm --filter backend start` | Run the compiled backend after building |
-| `pnpm --filter frontend preview` | Preview the frontend production build locally |
-| `pnpm --filter frontend add <package>` | Add a runtime dependency to the frontend |
-| `pnpm --filter backend add -D <package>` | Add a development dependency to the backend |
+| Command                                  | Purpose                                                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`         | Install both applications using the root lockfile                                |
+| `pnpm typecheck`                         | Check TypeScript in both applications                                            |
+| `pnpm test`                              | Run backend regression and lifecycle tests without Ollama                        |
+| `pnpm lint`                              | Run the frontend ESLint rules (backend has no ESLint configuration)              |
+| `pnpm build`                             | Compile the backend into backend/dist and bundle the frontend into frontend/dist |
+| `pnpm --filter backend start`            | Run the compiled backend after building                                          |
+| `pnpm --filter frontend preview`         | Preview the frontend production build locally                                    |
+| `pnpm --filter frontend add <package>`   | Add a runtime dependency to the frontend                                         |
+| `pnpm --filter backend add -D <package>` | Add a development dependency to the backend                                      |
 
 The root package is private and coordinates `backend/`, `frontend/` and the
 internal libraries in `packages/*`. See [internal packages](docs/internal-packages.md)
@@ -159,3 +160,5 @@ This project is licensed under the **MIT License**.
 ## Architecture and roadmap
 
 See [the architecture](docs/architecture.md), [ADR-001](docs/adr/001-use-modular-monolith.md) and [the roadmap](docs/roadmap.md) for system boundaries, decisions and the implementation sequence.
+
+See [backend construction and lifecycle](docs/backend-composition.md) for dependency injection, startup/shutdown behavior and the focused P0.2 regression tests.

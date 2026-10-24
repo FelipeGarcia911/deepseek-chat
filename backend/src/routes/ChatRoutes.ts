@@ -1,14 +1,14 @@
 import express from "express";
-import ChatController from "../controllers/ChatController";
+import type ChatController from "../controllers/ChatController";
 
-const router = express.Router();
+export function createChatRouter(controller: ChatController) {
+  const router = express.Router();
 
-router.get("/list", ChatController.getChats);
-router.post("/new", ChatController.createChat);
+  router.get("/list", controller.getChats);
+  router.post("/new", controller.createChat);
+  router.get("/:chatId/history", controller.getChatHistory);
+  router.post("/:chatId/message", controller.sendMessage);
+  router.delete("/:chatId", controller.deleteChat);
 
-router.get("/:chatId/history", ChatController.getChatHistory);
-router.post("/:chatId/message", ChatController.sendMessage);
-
-router.delete("/:chatId", ChatController.deleteChat);
-
-export default router;
+  return router;
+}
