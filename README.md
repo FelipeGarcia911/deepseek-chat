@@ -55,41 +55,59 @@ This ensures the service stays active even after closing the terminal.
 
 ---
 
-## 💻 4. Install and Start the Frontend
+## 💻 4. Install the workspace
 
-Navigate to the frontend directory and install dependencies:
+Run all setup commands from the repository root:
 
 ```sh
-cd frontend
+nvm install
+nvm use
+npm install --global pnpm@12.14.0
 pnpm install --frozen-lockfile
+cp -n backend/.env.example backend/.env
+cp -n frontend/.env.example frontend/.env
 ```
 
-Start the development server:
+Keep existing `.env` files if you have already configured them. The backend
+requires `OLLAMA_API_URL` and `MODEL_NAME`; the frontend uses `VITE_API_BASE_URL`.
+
+## 🔧 5. Run the applications
 
 ```sh
 pnpm dev
 ```
 
-By default, the frontend runs on **http://localhost:5173**.
-
----
-
-## 🔧 5. Install and Start the Backend
-
-Navigate to the backend directory and install dependencies:
+This starts the frontend at **http://localhost:5173** and the backend at
+**http://localhost:4000**. Stop both with Ctrl+C. To run them separately:
 
 ```sh
-cd backend
-pnpm install --frozen-lockfile
+pnpm dev:frontend
+pnpm dev:backend
 ```
 
-Start the backend server:
+Each package script runs in its own directory, so `.env` paths remain local
+to the application. The same applies to filtered commands:
 
 ```sh
-pnpm dev
+pnpm --filter backend dev
 ```
 
-The backend should be running on **http://localhost:4000**.
+## Workspace commands
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm install --frozen-lockfile` | Install both applications using the root lockfile |
+| `pnpm typecheck` | Check TypeScript in both applications |
+| `pnpm lint` | Run the frontend ESLint rules (backend has no ESLint configuration) |
+| `pnpm build` | Compile the backend into backend/dist and bundle the frontend into frontend/dist |
+| `pnpm --filter backend start` | Run the compiled backend after building |
+| `pnpm --filter frontend preview` | Preview the frontend production build locally |
+| `pnpm --filter frontend add <package>` | Add a runtime dependency to the frontend |
+| `pnpm --filter backend add -D <package>` | Add a development dependency to the backend |
+
+The root package is private and coordinates the `backend/` and `frontend/`
+workspace packages. Commit the root `pnpm-lock.yaml` when changing dependencies.
+See [the migration guide](docs/migration-plan.md) for the underlying concepts.
 
 ---
 
@@ -117,7 +135,7 @@ tail -f ollama.log               # Check Ollama logs
 ### **Backend is not responding**
 
 - Ensure Ollama is running before starting the backend.
-- Check if the API is reachable: `curl http://localhost:4000/api/health`.
+- Check if the API is reachable: `curl http://localhost:4000/api/chats/list`.
 
 ### **Frontend is not loading**
 

@@ -87,3 +87,47 @@ build y lint del frontend. El backend arrancó con nodemon/ts-node y
 GET /api/chats/list respondió HTTP 200 con un array JSON.
 `@types/node` pasó de 22.12.0 a 26.6.5; sus dependencias transitivas
 se actualizaron con él. No se ha probado una llamada de generación a Ollama.
+
+## Guía práctica del resultado
+
+Desde la raíz, `nvm use` selecciona Node 26.12.1 y
+`pnpm install --frozen-lockfile` instala los dos paquetes. La raíz fija pnpm
+12.14.0; `engineStrict: true` en pnpm-workspace.yaml rechaza instalaciones
+con una versión de Node fuera del rango declarado.
+
+- `pnpm dev`: ejecuta los dos scripts dev en paralelo. Ctrl+C los detiene.
+- `pnpm dev:frontend` / `pnpm dev:backend`: seleccionan una aplicación.
+- `pnpm typecheck`: comprueba ambos proyectos TypeScript.
+- `pnpm lint`: comprueba el frontend; el backend no tiene configuración ESLint.
+- `pnpm build`: genera frontend/dist y backend/dist.
+- `pnpm --filter backend start`: arranca el backend compilado.
+- `pnpm --filter frontend add <paquete>`: modifica solo las dependencias del frontend.
+
+Al añadir una dependencia se actualizan el manifiesto del paquete y el
+lockfile raíz. Ambos cambios van juntos en Git. No hay dependencias de runtime
+en la raíz: Express pertenece al backend y React al frontend. Tampoco se
+fuerzan versiones iguales de TypeScript: cada aplicación conserva la suya.
+
+El lockfile consolidado tiene importadores backend y frontend. Se comprobaron
+contra los dos archivos anteriores: importadores, paquetes y snapshots
+coinciden, por lo que la conversión no actualiza dependencias. Las entradas
+de herramientas de pnpm se mantienen en el documento de toolchain del lockfile.
+
+Para revisar el proceso, `git show <commit>` muestra cada etapa. Para recuperar
+un cambio publicado se puede crear un commit inverso con `git revert <commit>`;
+las etapas deben deshacerse en orden inverso, comenzando por el workspace.
+
+## Resultados — etapa 3
+
+Completada con Node 26.12.1 y pnpm 12.14.0:
+
+- Instalación del workspace con `pnpm install --frozen-lockfile`, sin resolver versiones nuevas.
+- `pnpm typecheck`, `pnpm lint` y `pnpm build` finalizaron correctamente.
+- `pnpm dev` arrancó ambas aplicaciones: frontend HTTP 200 en localhost:5173
+  y backend HTTP 200 con array JSON en /api/chats/list (puerto temporal 4017).
+- `pnpm --filter backend start` atendió /api/chats/list con HTTP 200
+  usando el JavaScript compilado (puerto temporal 4018).
+- Los procesos de comprobación se detuvieron al terminar.
+
+La advertencia de Vite sobre el tamaño del bundle permanece. No se ha validado
+la generación de respuestas con Ollama ni añadido una suite de tests.
