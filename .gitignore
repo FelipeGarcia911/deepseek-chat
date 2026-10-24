@@ -1,6 +1,6 @@
 # Node.js dependencies
 node_modules/
-yarn-lock.yaml
+.pnpm-store/
 dist/
 
 # Editor/OS

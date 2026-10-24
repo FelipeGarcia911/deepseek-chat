@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
+import type { AppDispatch } from "./store";
 import Layout from "./components/Layout";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
@@ -9,7 +10,7 @@ import { ThemeProvider, CssBaseline } from "@mui/material";
 import useAutoTheme from "./hooks/useTheme";
 
 function App() {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
 
   const { theme } = useAutoTheme();
 

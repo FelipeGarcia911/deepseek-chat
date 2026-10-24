@@ -1,6 +1,8 @@
 import { onCLS, onFID, onLCP, onFCP, onTTFB } from "web-vitals";
 
-type ReportHandler = (metric: any) => void;
+import type { Metric } from "web-vitals";
+
+type ReportHandler = (metric: Metric) => void;
 
 /**
  * Sends Core Web Vitals metrics to the console or an analytics service.

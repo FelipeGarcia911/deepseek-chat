@@ -7,7 +7,7 @@ This guide provides step-by-step instructions to set up and run the AI chatbot p
 Before starting, make sure you have the following installed:
 
 - **Node.js** (Recommended: use `nvm` for version management)
-- **Yarn** or **yarn** (for package management)
+- **pnpm 12.14.0** (install with `npm install --global pnpm@12.14.0`)
 - **Docker** (optional, for running Ollama in a container)
 - **Git** (to clone the repository)
 
@@ -61,13 +61,13 @@ Navigate to the frontend directory and install dependencies:
 
 ```sh
 cd frontend
-yarn install  # Or use: npm install
+pnpm install --frozen-lockfile
 ```
 
 Start the development server:
 
 ```sh
-yarn dev  # Or use: npm dev
+pnpm dev
 ```
 
 By default, the frontend runs on **http://localhost:5173**.
@@ -80,13 +80,13 @@ Navigate to the backend directory and install dependencies:
 
 ```sh
 cd backend
-yarn install  # Or use: npm install
+pnpm install --frozen-lockfile
 ```
 
 Start the backend server:
 
 ```sh
-yarn dev  # Or use: npm dev
+pnpm dev
 ```
 
 The backend should be running on **http://localhost:4000**.
@@ -122,7 +122,7 @@ tail -f ollama.log               # Check Ollama logs
 ### **Frontend is not loading**
 
 - Ensure the backend is running.
-- Restart the frontend: `yarn dev`.
+- Restart the frontend: `pnpm dev`.
 
 ---
 
@@ -133,3 +133,7 @@ This project is licensed under the **MIT License**.
 ---
 
 🚀 **Enjoy your AI chatbot!**
+
+## Migration guide
+
+See [the migration plan](docs/migration-plan.md) for the rationale, steps and validation of the pnpm, Node.js and workspace migrations.
