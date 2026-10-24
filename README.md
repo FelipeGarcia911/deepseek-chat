@@ -111,7 +111,7 @@ The root package is private and coordinates `backend/`, `frontend/` and the
 internal libraries in `packages/*`. See [internal packages](docs/internal-packages.md)
 for their dependencies, module formats and development workflow.
 Commit the root `pnpm-lock.yaml` when changing dependencies.
-See [the migration guide](docs/migration-plan.md) for the underlying concepts.
+See [the architecture](docs/architecture.md) for current and target system boundaries.
 
 ---
 
@@ -156,6 +156,6 @@ This project is licensed under the **MIT License**.
 
 🚀 **Enjoy your AI chatbot!**
 
-## Migration guide
+## Architecture and roadmap
 
-See [the migration plan](docs/migration-plan.md) for the rationale, steps and validation of the pnpm, Node.js and workspace migrations.
+See [the architecture](docs/architecture.md), [ADR-001](docs/adr/001-use-modular-monolith.md) and [the roadmap](docs/roadmap.md) for system boundaries, decisions and the implementation sequence.

@@ -1,10 +1,11 @@
-# Bibliotecas internas
+# Internal libraries
 
-Esta etapa prepara los paquetes y comprueba sus importaciones. Las entradas
-`src/index.ts` contienen `export {}`: aún no se han movido componentes, tipos,
-utilidades ni validaciones. El panel de administración se creará después.
+This stage prepares the packages and verifies their imports. The
+`src/index.ts` entry points contain `export {}`: no components, types,
+utilities or validation logic have been moved yet. The administration panel
+will be created later.
 
-## Dependencias
+## Dependencies
 
 ```text
 frontend -> @chat-app/ui
@@ -12,31 +13,31 @@ frontend -> @chat-app/shared
 backend  -> @chat-app/shared
 ```
 
-`packages/ui` es la futura biblioteca React del chat y del admin. Declara
-React y React DOM como peerDependencies: las aplicaciones consumidoras deben
-aportar versiones compatibles. Esto evita tratar React como una copia privada
-de la biblioteca. Los tipos de React y TypeScript son herramientas de desarrollo.
+`packages/ui` is the future React library for chat and admin. It declares
+React and React DOM as peerDependencies: consuming applications must provide
+compatible versions. This avoids treating React as a private copy owned by
+the library. React types and TypeScript are development tools.
 
-`packages/shared` será código común para navegador y servidor. Su configuración
-TypeScript no incluye DOM ni los tipos globales de Node: usar `window`, `document`
-o `process` produce un error de tipos. Tampoco depende de React, Express ni
-de ninguna aplicación. Esto orienta el paquete hacia funciones portables,
-contratos de datos y validaciones. Las credenciales y la lógica exclusiva del
-servidor deben quedarse en el backend.
+`packages/shared` will contain code shared by browser and server. Its TypeScript
+configuration includes neither DOM nor Node global types: using `window`,
+`document` or `process` produces a type error. It also does not depend on React,
+Express or any application. This directs the package toward portable functions,
+data contracts and validation. Credentials and server-only logic must remain
+in the backend.
 
-## Cómo se enlazan
+## Linking
 
-Los manifiestos consumidores declaran `"@chat-app/shared": "workspace:*"`
-y el frontend también declara UI. pnpm enlaza las carpetas locales y exige
-que el paquete exista dentro del workspace. No se publican ni se descargan
-estos paquetes de un registro. Todos los paquetes son privados.
+Consumer manifests declare `"@chat-app/shared": "workspace:*"`, and the frontend
+also declares UI. pnpm links the local directories and requires the package
+to exist within the workspace. These packages are neither published nor
+fetched from a registry. All packages are private.
 
-Las aplicaciones importan por nombre de paquete, no mediante rutas como
-`../../packages/shared/src`. Cada paquete expone su API pública desde index.ts
-y su manifiesto define la entrada mediante exports. Al añadir código en la
-siguiente etapa, habrá que exportarlo desde esa entrada.
+Applications import by package name rather than paths such as
+`../../packages/shared/src`. Each package exposes its public API through
+index.ts, and its manifest defines the entry point through exports. Code added
+in the next stage must be exported from that entry point.
 
-Las importaciones actuales son de efecto lateral:
+The current imports are side-effect imports:
 
 ```ts
 // Frontend
@@ -47,31 +48,31 @@ import "@chat-app/shared";
 import "@chat-app/shared";
 ```
 
-Comprueban resolución e integración sin inventar componentes o funciones de
-negocio. Al estar vacías, no cambian el comportamiento de las aplicaciones.
-UI se incorpora solo al frontend: el backend consume shared.
+They verify resolution and integration without inventing components or business
+functions. Since the entry points are empty, they do not change application
+behavior. Only the frontend consumes UI; the backend consumes shared.
 
-## Compilación y formatos
+## Compilation and formats
 
-UI genera ESM y declaraciones de tipos en packages/ui/dist. Shared genera
-ESM en dist/esm y CommonJS en dist/cjs desde el mismo código fuente:
+UI generates ESM and type declarations in packages/ui/dist. Shared generates
+ESM in dist/esm and CommonJS in dist/cjs from the same source code:
 
-- Vite y el frontend seleccionan la entrada `import` de shared.
-- El backend actual compila a CommonJS y selecciona la entrada `require`.
-- Cada entrada tiene sus declaraciones .d.ts.
-- El campo types de shared permite que el backend conserve su resolución
-  TypeScript actual; no es necesario cambiar su sistema de módulos.
+- Vite and the frontend select shared's `import` entry.
+- The current backend compiles to CommonJS and selects the `require` entry.
+- Each entry has its own .d.ts declarations.
+- Shared's types field lets the backend retain its existing TypeScript
+  resolution; changing its module system is unnecessary.
 
-El pequeño script compile.mjs de shared ejecuta TypeScript para ambos formatos
-y escribe un package.json con type: commonjs en dist/cjs. Ese archivo hace
-que Node interprete esos .js como CommonJS aunque el paquete sea ESM.
-En modo watch mantiene ambos compiladores activos y los detiene al terminar.
+Shared's small compile.mjs script runs TypeScript for both formats and writes
+a package.json with type: commonjs in dist/cjs. That file tells Node to treat
+those .js files as CommonJS even though the package itself is ESM. In watch
+mode, the script keeps both compilers running and stops them on shutdown.
 
-En las bibliotecas, los imports relativos entre futuros archivos TypeScript
-deben indicar la extensión .js de salida para que funcionen también como
-ESM en Node. No se requieren aliases de Vite ni paths de TypeScript.
+Within the libraries, relative imports between future TypeScript files must
+use the output .js extension so they also work as ESM in Node. No Vite aliases
+or TypeScript paths are required.
 
-## Comandos desde la raíz
+## Commands from the repository root
 
 ```sh
 nvm use
@@ -82,42 +83,43 @@ pnpm lint
 pnpm dev
 ```
 
-`pnpm build` respeta el grafo: compila las bibliotecas antes de sus consumidores.
-`pnpm typecheck` construye primero las bibliotecas porque los consumidores
-necesitan encontrar sus declaraciones de tipos incluso en un checkout limpio.
-El lint existente sigue comprobando el frontend.
+`pnpm build` respects the dependency graph: it compiles libraries before their
+consumers. `pnpm typecheck` builds libraries first because consumers need their
+type declarations even in a clean checkout. Existing linting still checks
+the frontend.
 
-`pnpm dev` hace un build inicial de los paquetes y luego ejecuta todos los
-servidores y compiladores en paralelo. Los cambios en las bibliotecas se
-recompilan; el backend vigila dist/cjs de shared y se reinicia cuando cambia.
-Los archivos generados dist están ignorados por Git.
+`pnpm dev` performs an initial package build and then runs all servers and
+compilers in parallel. Library changes are recompiled; the backend watches
+shared's dist/cjs directory and restarts when it changes. Generated dist
+files are ignored by Git.
 
-`pnpm dev:frontend` incluye el frontend y sus bibliotecas; `pnpm dev:backend`
-incluye el backend y shared. Las dependencias se seleccionan con el sufijo
-`...` del filtro de pnpm. Ctrl+C detiene el conjunto.
+`pnpm dev:frontend` includes the frontend and its libraries; `pnpm dev:backend`
+includes the backend and shared. Dependencies are selected with pnpm's `...`
+filter suffix. Ctrl+C stops the group.
 
-Para el futuro admin, basta añadir su carpeta al workspace y declarar las
-dependencias workspace:* correspondientes. Esta etapa no crea esa aplicación.
+For the future admin application, add its directory to the workspace and
+declare the appropriate workspace:\* dependencies. This stage does not create
+that application.
 
-Referencias: [filtros de pnpm](https://pnpm.io/filtering) y
-[módulos TypeScript](https://www.typescriptlang.org/docs/handbook/modules/reference.html).
+References: [pnpm filtering](https://pnpm.io/filtering) and
+[TypeScript modules](https://www.typescriptlang.org/docs/handbook/modules/reference.html).
 
-## Validación de esta etapa
+## Stage validation
 
-Con Node 26.12.1 y pnpm 12.14.0 se comprobaron:
+The following checks passed with Node 26.12.1 and pnpm 12.14.0:
 
-- Instalación con lockfile congelado; se conservaron las versiones de paquetes
-  del registro. El lockfile incorpora enlaces locales y resuelve el peer de
-  tipos de Node de Vite en el nuevo grafo.
-- Build de los cuatro paquetes y comprobación de tipos.
-- Lint existente del frontend.
-- Importación ESM de UI/shared desde frontend y require de shared desde backend.
-- Arranque de desarrollo sin dist previo en las bibliotecas.
-- Resolución de ambas bibliotecas por Vite al transformar App.tsx.
-- Recompilación de UI y de los dos formatos de shared al modificar contenido,
-  junto con el reinicio del backend y su respuesta HTTP.
-- Respuesta HTTP del backend compilado con shared enlazado.
+- Frozen-lockfile installation; registry package versions were preserved.
+  The lockfile includes local links and resolves Vite's Node types peer in
+  the new graph.
+- Build and type checking for all four packages.
+- Existing frontend linting.
+- ESM imports of UI/shared from the frontend and require of shared from the backend.
+- Development startup without previously generated library dist directories.
+- Vite resolution of both libraries while transforming App.tsx.
+- Recompilation of UI and both shared formats after content changes, together
+  with backend restart and its HTTP response.
+- HTTP response from the compiled backend with shared linked.
 
-Los cambios temporales de las pruebas se restauraron y se detuvieron los
-procesos. Permanece la advertencia previa del tamaño del bundle de Vite.
-La integración de generación con Ollama no forma parte de esta comprobación.
+Temporary verification changes were restored, and processes were stopped.
+The existing Vite bundle-size warning remains. Ollama generation integration
+was outside the scope of these checks.
