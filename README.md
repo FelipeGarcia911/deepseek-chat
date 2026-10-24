@@ -86,10 +86,12 @@ pnpm dev:backend
 ```
 
 Each package script runs in its own directory, so `.env` paths remain local
-to the application. The same applies to filtered commands:
+to the application. Filtered commands also run in each package directory. Build the libraries first
+and include their watchers with the dependency selector `...`:
 
 ```sh
-pnpm --filter backend dev
+pnpm build:packages
+pnpm --filter "backend..." --parallel dev
 ```
 
 ## Workspace commands
@@ -105,8 +107,10 @@ pnpm --filter backend dev
 | `pnpm --filter frontend add <package>` | Add a runtime dependency to the frontend |
 | `pnpm --filter backend add -D <package>` | Add a development dependency to the backend |
 
-The root package is private and coordinates the `backend/` and `frontend/`
-workspace packages. Commit the root `pnpm-lock.yaml` when changing dependencies.
+The root package is private and coordinates `backend/`, `frontend/` and the
+internal libraries in `packages/*`. See [internal packages](docs/internal-packages.md)
+for their dependencies, module formats and development workflow.
+Commit the root `pnpm-lock.yaml` when changing dependencies.
 See [the migration guide](docs/migration-plan.md) for the underlying concepts.
 
 ---

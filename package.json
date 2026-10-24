@@ -7,11 +7,12 @@
     "node": ">=26.12.1 <27"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
-    "dev:backend": "pnpm --filter backend dev",
-    "dev:frontend": "pnpm --filter frontend dev",
+    "dev": "pnpm build:packages && pnpm -r --parallel dev",
+    "dev:backend": "pnpm build:packages && pnpm --filter \"backend...\" --parallel dev",
+    "dev:frontend": "pnpm build:packages && pnpm --filter \"frontend...\" --parallel dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm --filter frontend lint"
+    "typecheck": "pnpm build:packages && pnpm -r typecheck",
+    "lint": "pnpm --filter frontend lint",
+    "build:packages": "pnpm --filter \"./packages/*\" build"
   }
 }
