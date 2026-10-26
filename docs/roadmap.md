@@ -230,7 +230,7 @@ Still incomplete or only partial:
 
 **General description:** Run the full verification sequence on pull requests and align the README with executable behavior.
 
-**Implementation:** [Continuous integration](continuous-integration.md) describes the Ubuntu job, toolchain selection, unconditional frozen install, shared `pnpm verify` sequence, cache behavior and local clean-clone validation. The repository includes an MIT license; README HTTP checks explicitly distinguish the current list route from a future health contract. The first hosted run remains pending until the workflow is pushed.
+**Implementation:** [Continuous integration](continuous-integration.md) describes the Ubuntu job, toolchain selection, unconditional frozen install, shared `pnpm verify` sequence, cache behavior and local clean-clone validation. The repository includes an MIT license; README HTTP checks explicitly distinguish the current list route from a future health contract. The [first hosted run for `0bf0579`](https://github.com/FelipeGarcia911/deepseek-chat/actions/runs/40393215009) completed successfully, satisfying the phase 0 exit gate together with clean-clone verification.
 
 **Acceptance criteria:**
 
@@ -256,6 +256,8 @@ Still incomplete or only partial:
 
 **General description:** Define Workspace, Assistant, Assistant Draft, Assistant Version, Environment, Deployment, Model Profile, Knowledge Base, Conversation, Message and Run.
 
+**Implementation:** [Domain glossary and ownership](domain.md) defines each concept, lifecycle intent, domain parent, write-owning module, mutation rules and `workspaceId` invariants. It distinguishes the target from legacy Chat records, published-version execution from Draft Playground snapshots, and mutable Profiles/knowledge collections from published effective settings. Precise state machines and storage/contracts remain subsequent work.
+
 **Acceptance criteria:**
 
 - `docs/domain.md` defines every term and its lifecycle.
@@ -275,7 +277,7 @@ Still incomplete or only partial:
 
 - State diagrams cover publish, promote, roll back, ingestion, generation and failure.
 - Invalid transitions are explicitly listed.
-- A Conversation pins the resolved Assistant Version when it begins.
+- A Conversation pins its execution target when it begins: a resolved Assistant Version for public/published previews, or an immutable Draft snapshot for Playground.
 - Production promotion changes an alias, not the immutable version.
 
 **Technical justification and learning:** Lifecycle bugs are common when states are inferred from nullable fields. Learn explicit state machines, invariants and reproducible releases.
@@ -384,7 +386,7 @@ Still incomplete or only partial:
 
 **Acceptance criteria:**
 
-- Conversations pin `assistantVersionId` at creation.
+- Published-version Conversations pin `assistantVersionId` at creation; Draft previews need explicit snapshot targets rather than invented Version IDs.
 - Message ordering is deterministic.
 - A Run records status, provider/model identity, timing and errors without storing hidden reasoning.
 - Concurrent messages do not corrupt or reorder stored state.

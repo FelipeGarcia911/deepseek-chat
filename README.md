@@ -152,6 +152,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Continuous integration](docs/continuous-integration.md)
 - [Automated test foundations](docs/testing.md)
 - [Repository and test rules](AGENTS.md)
+- [Domain glossary and ownership](docs/domain.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 

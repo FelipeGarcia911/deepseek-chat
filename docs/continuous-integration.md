@@ -72,9 +72,10 @@ in the disposable clone while keeping its lockfile unchanged. Even with the
 local store populated, installation must fail; the original manifest is then
 restored. Workflow syntax is checked separately with actionlint.
 
-A local run is evidence of the commands, not a claim that a hosted GitHub job
-has run. The first hosted run remains pending until this workflow is committed
-and pushed or included in a pull request. CI setup does not push automatically.
+The local checks above are separate from hosted execution. The [first hosted
+run for commit `0bf0579`](https://github.com/FelipeGarcia911/deepseek-chat/actions/runs/40393215009)
+completed successfully on October 26, 2026. It ran on a push, after the workflow
+was committed and pushed; CI setup itself does not push automatically.
 The existing bundle-size warning stays visible and is documented in
 [quality gates](quality-gates.md).
 

@@ -107,6 +107,11 @@ not require three physical platform deployments for the MVP.
 
 ## 3. Configuration ownership and module boundaries
 
+[Domain glossary and ownership](domain.md) defines the target entities, their
+mutation boundaries and Workspace invariants. Use Assistant for the configured
+product and Conversation for an interaction history; legacy Chat names remain
+explicitly scoped to the prototype until contract/persistence migration.
+
 | Owner                                        | Settings and data                                                                                                |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Platform environment                         | Node environment, HTTP port, allowed CORS origins and the temporary chat-storage path.                           |
