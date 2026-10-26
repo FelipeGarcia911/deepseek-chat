@@ -291,6 +291,8 @@ Still incomplete or only partial:
 
 **General description:** Record how HTTP contracts are described, validated and shared between frontend and backend.
 
+**Implementation:** [ADR-002](adr/002-share-runtime-validated-api-contracts.md) compares spec-first and code-first OpenAPI, shared types only, an RPC framework and shared runtime schemas. It selects Zod schemas in `@chat-app/shared` with inferred types, and defines `/api/v1` naming, UUIDv7 identifiers, RFC 9457 problem details with stable codes, expected-revision conflicts, `Idempotency-Key` replays and cursor pagination. The dependency and middleware arrive in P1.4; route namespaces in P1.5.
+
 **Acceptance criteria:**
 
 - ADR compares at least generated OpenAPI clients and a shared TypeScript contract package.

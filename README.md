@@ -154,6 +154,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Repository and test rules](AGENTS.md)
 - [Domain glossary and ownership](docs/domain.md)
 - [Lifecycle states and invariants](docs/lifecycle.md)
+- [ADR-002: API contract strategy](docs/adr/002-share-runtime-validated-api-contracts.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 
