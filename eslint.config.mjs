@@ -9,16 +9,28 @@ export default tseslint.config(
   {
     files: ["**/*.{ts,tsx,mts,mjs,js}"],
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    languageOptions: { globals: globals.node },
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
     },
   },
   {
-    files: ["frontend/src/**/*.{ts,tsx}"],
+    files: [
+      "backend/**/*.{ts,mts,mjs,js}",
+      "scripts/**/*.{ts,mts,mjs,js}",
+      "packages/*/scripts/**/*.{ts,mts,mjs,js}",
+      "**/*.config.{ts,mts,mjs,js}",
+      "frontend/test/**/*.ts",
+      "frontend/src/store/**/*.test.ts",
+    ],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["frontend/src/**/*.{ts,tsx}", "packages/ui/src/**/*.{ts,tsx}"],
+    ignores: ["frontend/src/store/**/*.test.ts"],
     languageOptions: { globals: globals.browser },
     plugins: { "react-hooks": reactHooks, "react-refresh": reactRefresh },
     rules: {
+      "no-restricted-globals": ["error", ...Object.keys(globals.node).filter((name) => !(name in globals.browser))],
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     },

@@ -47,11 +47,26 @@ root lockfile when dependencies change; excluding its formatting does not
 bypass frozen-install validation.
 
 `eslint.config.mjs` uses recommended JavaScript and TypeScript rules for
-applications and tooling. Node globals apply to server/tooling code; browser
-globals and the existing React Hooks and Fast Refresh rules apply to frontend
-source. Generated `dist`, dependency and coverage directories are ignored.
+applications and tooling. The common rules define no runtime globals. Separate
+file scopes supply Node globals to backend, scripts, configuration and Node
+tests, and browser globals to frontend source and `packages/ui/src`. Node unit
+tests under `frontend/src/store` are excluded from the browser scope. React
+Hooks and Fast Refresh rules apply to browser components. A browser-only
+`no-restricted-globals` rule rejects Node-only globals explicitly, because
+the recommended TypeScript rules disable `no-undef`. Shared library source
+inherits neither runtime's globals. Generated `dist`, dependency and coverage
+directories are ignored.
 Unused callback parameters may use the `_` prefix; other unused identifiers
 remain errors. Root lint uses `--max-warnings 0`.
+
+The frontend application compiler explicitly loads only `vite/client` ambient
+types and excludes test files/setup. The test compiler overrides that exclusion
+and loads Node types; the Vite/tooling compiler explicitly loads Node types too.
+Keeping tests out of the browser program prevents Vitest's transitive Node
+declarations from widening production globals. The UI library already limits
+ambient types to React and React DOM. Regression tests lint virtual browser,
+UI and Node files, and compile a browser probe that must reject `process`,
+`Buffer`, `require` and `__dirname`.
 
 ```sh
 # Apply formatting intentionally, then inspect the diff.
@@ -100,12 +115,12 @@ resolved or that loading performance has been benchmarked.
 
 ## Verification evidence
 
-The P0.5 suite contains 128 behavior checks: 79 backend and 49 frontend.
+The P0.5 suite contains 130 checks: 79 backend and 51 frontend.
 All source files satisfy each 90% coverage threshold. Backend totals are
 98.37% statements, 98.52% branches, 97.56% functions and 98.25% lines;
 frontend totals are 100% statements, 98.73% branches, 100% functions and
-100% lines. The frontend count decreases by three checks because Web Vitals
-and its corresponding tests are retired together.
+100% lines. Web Vitals and its three tests are retired together; the globals
+follow-up adds two regression checks for lint and TypeScript boundaries.
 
 The full root verification sequence, a frozen offline install and focused
 application format/lint commands pass. GitHub Actions and clean-clone setup

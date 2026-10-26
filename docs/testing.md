@@ -253,6 +253,7 @@ HTTP requests Supertest uses.
 `pnpm verify` includes coverage after format, lint and typecheck, before the
 production build. See [quality gates](quality-gates.md) for the full sequence
 and current results. P0.5 retires the unused Web Vitals helper, dependency and
-its three tests together; 128 checks remain and every production file still
+its three tests together. The globals follow-up adds two boundary regression
+checks; 130 checks pass and every production file still
 meets all four 90% thresholds. The P0.4 follow-up above remains an independent
 verification with Web Vitals included.
