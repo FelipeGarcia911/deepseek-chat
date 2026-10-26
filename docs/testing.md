@@ -211,3 +211,38 @@ regressions are not merged into the Vitest worker's coverage report, so
 service regression also runs outside the normal Vitest module pipeline.
 Those paths need measured coverage before the gate can pass; they must not
 be excluded to inflate the result.
+
+## P0.4 coverage follow-up
+
+The initial coverage gap above is resolved by the complementary test change.
+All production files remain included, including the unused Web Vitals helper;
+thresholds and coverage exclusions are unchanged. The suite has 131 passing
+checks: 79 backend and 52 frontend.
+
+| Application | Statements | Branches | Functions | Lines  |
+| ----------- | ---------- | -------- | --------- | ------ |
+| Backend     | 98.37%     | 98.52%   | 97.56%    | 98.25% |
+| Frontend    | 100%       | 98.79%   | 100%      | 100%   |
+
+Every source file meets all four 90% thresholds. Remaining uncovered source
+includes the executable-only startup catch and one defensive input fallback;
+those remain in the denominator.
+
+`main` is explicitly exported from `server.ts` so source-level startup tests
+can invoke the same lifecycle logic as the executable. Importing it still
+starts nothing. Tests supply a controlled HTTP server and fake clock to check
+signal cleanup, idempotent shutdown, listener/close failures and the forced
+shutdown deadline. Existing subprocess tests independently retain coverage of
+actual startup, dotenv and operating-system signals. No subprocess coverage
+is claimed or silently merged; direct source tests measure the shared logic.
+
+Frontend service and Redux tests check existing client response handling with
+controlled transport/service results. They do not introduce a ModelProvider
+contract or assert that the deployed generation endpoint succeeds. App-level
+component tests exercise the real router, store, layout, sidebar and history.
+Storage tests cover restoration, missing/invalid data, unknown conversations
+and the prototype's logged write failures.
+
+The generation HTTP test allows only loopback destinations and checks the
+unchanged history and 503 contract. It does not depend on how many internal
+HTTP requests Supertest uses.

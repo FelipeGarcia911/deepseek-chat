@@ -52,10 +52,9 @@ test("should return a stable 503 without saving messages or making external requ
   assert.equal(await readFile(storagePath, "utf8"), before);
   assert.equal(fetchSpy.mock.calls.length, 0);
   assert.equal(httpsSpy.mock.calls.length, 0);
-  assert.equal(httpSpy.mock.calls.length, 3);
   for (const [options] of httpSpy.mock.calls) {
     assert.ok(typeof options === "object" && !(options instanceof URL));
-    assert.equal(options.host, "127.0.0.1");
+    assert.ok(["127.0.0.1", "localhost", "::1"].includes(options.host ?? ""));
   }
 });
 
@@ -111,4 +110,14 @@ test("should compose two applications with independent storage, origins and node
   await second.api.get(`${base}/list`).set("Origin", "https://first.example.test").expect(403);
   await second.api.get(`${base}/list`).set("Origin", "https://second.example.test").expect(200, []);
   assert.equal(await readFile(second.storagePath, "utf8"), "[]");
+});
+
+test("should return a controlled error for malformed JSON", async (t) => {
+  const { api } = await fixture(t);
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  await api
+    .post(`${base}/new`)
+    .set("Content-Type", "application/json")
+    .send('{"title":')
+    .expect(500, { error: "Internal server error" });
 });

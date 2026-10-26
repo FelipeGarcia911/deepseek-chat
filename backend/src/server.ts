@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import { ConfigurationError, loadConfig } from "./config";
 import { createApplication } from "./composition";
 
-async function main() {
+export async function main() {
   const environmentFile = dotenv.config();
   if (environmentFile.error && (environmentFile.error as NodeJS.ErrnoException).code !== "ENOENT") {
     throw new ConfigurationError([".env: could not be read; check the file location and permissions."]);

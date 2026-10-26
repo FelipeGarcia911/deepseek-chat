@@ -33,7 +33,7 @@ const ChatListItem = ({ chat }: ChatListItemProps) => {
       onClick={() => navigate(`/chat/${chat.id}`)}
     >
       <ListItemText primary={chat.title} />
-      <IconButton onClick={handleDelete} sx={{ color: "error.main" }}>
+      <IconButton aria-label={`Delete ${chat.title}`} onClick={handleDelete} sx={{ color: "error.main" }}>
         <DeleteIcon />
       </IconButton>
     </ListItem>

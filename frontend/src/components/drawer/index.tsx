@@ -9,7 +9,7 @@ const DrawerMenu = () => {
   return (
     <Drawer variant="permanent" sx={{ width: 250, flexShrink: 0 }}>
       <Box sx={{ width: 250, p: 2, display: "flex", flexDirection: "column", alignItems: "center", height: "100%" }}>
-        <IconButton onClick={() => navigate("/")} sx={{ mb: 1 }}>
+        <IconButton aria-label="Go to home" onClick={() => navigate("/")} sx={{ mb: 1 }}>
           <HomeIcon sx={{ fontSize: 30, color: "primary.main" }} />
         </IconButton>
 

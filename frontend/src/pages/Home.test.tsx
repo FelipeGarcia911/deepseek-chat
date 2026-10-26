@@ -68,3 +68,16 @@ describe("conversation creation", () => {
     expect(store.getState().chat.chats).toEqual([]);
   });
 });
+
+it("should ignore blank titles and create a conversation with Enter", async () => {
+  const createChat = vi
+    .spyOn(ChatService, "createChat")
+    .mockResolvedValue({ id: "test-chat", title: "Keyboard chat", messages: [] });
+  const user = userEvent.setup();
+  renderHome();
+  await user.click(screen.getByRole("button", { name: "Crear Chat" }));
+  expect(createChat).not.toHaveBeenCalled();
+  await user.type(screen.getByRole("textbox"), "Keyboard chat{Enter}");
+  expect(await screen.findByRole("heading", { name: "Created conversation" })).toBeVisible();
+  expect(createChat).toHaveBeenCalledExactlyOnceWith("Keyboard chat");
+});
