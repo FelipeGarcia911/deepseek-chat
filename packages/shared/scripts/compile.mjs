@@ -14,7 +14,7 @@ if (process.argv.includes("--watch")) {
   const children = configs.map((config) =>
     spawn(process.execPath, [tsc, "-p", config, "--watch", "--preserveWatchOutput"], {
       stdio: "inherit",
-    }),
+    })
   );
   let stopping = false;
   const stop = (code) => {

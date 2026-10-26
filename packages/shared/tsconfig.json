@@ -11,12 +11,8 @@
     "noEmitOnError": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist/esm",
-    "lib": [
-      "ES2022"
-    ],
+    "lib": ["ES2022"],
     "types": []
   },
-  "include": [
-    "src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }

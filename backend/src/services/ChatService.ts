@@ -24,7 +24,7 @@ class ChatService {
     try {
       const data = await fs.readFile(this.storagePath, "utf-8");
       this.chats = JSON.parse(data) || [];
-    } catch (error) {
+    } catch {
       console.warn("⚠️ No existing chat file found. Starting fresh.");
       this.chats = [];
     }

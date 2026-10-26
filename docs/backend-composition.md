@@ -66,7 +66,7 @@ CRUD, immutable configuration and generation rejection without persistence.
 Tests use temporary files, independently composed apps and local HTTP ports.
 No Ollama instance, fake model provider or provider contract is required.
 Frontend/component coverage is documented in [test foundations](testing.md);
-backend lint remains P0.5.
+backend lint is part of the shared [quality gates](quality-gates.md).
 
 The file store still replaces complete history, treats read errors as an empty
 store and logs write failures without propagating them. It is not suitable

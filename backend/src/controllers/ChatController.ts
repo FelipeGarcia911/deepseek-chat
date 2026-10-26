@@ -15,7 +15,7 @@ export interface ChatControllerDependencies {
 class ChatController {
   constructor(private readonly dependencies: ChatControllerDependencies) {}
 
-  getChats = async (req: Request, res: Response): Promise<void> => {
+  getChats = async (_req: Request, res: Response): Promise<void> => {
     try {
       const chats = await this.dependencies.chatService.getChats();
       res.json(chats);

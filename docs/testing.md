@@ -196,7 +196,8 @@ The existing frontend bundle-size warning remains outside this task.
 
 ## Coverage baseline after adopting the 90% rule
 
-Behavior checks pass, but P0.4 does not yet meet the new coverage gate.
+At the initial P0.4 commit, behavior checks passed but coverage did not yet
+meet the new gate. The follow-up section below records its resolution.
 
 | Application | Statements | Branches | Functions | Lines  |
 | ----------- | ---------- | -------- | --------- | ------ |
@@ -246,3 +247,12 @@ and the prototype's logged write failures.
 The generation HTTP test allows only loopback destinations and checks the
 unchanged history and 503 contract. It does not depend on how many internal
 HTTP requests Supertest uses.
+
+## P0.5 quality gate integration
+
+`pnpm verify` includes coverage after format, lint and typecheck, before the
+production build. See [quality gates](quality-gates.md) for the full sequence
+and current results. P0.5 retires the unused Web Vitals helper, dependency and
+its three tests together; 128 checks remain and every production file still
+meets all four 90% thresholds. The P0.4 follow-up above remains an independent
+verification with Web Vitals included.

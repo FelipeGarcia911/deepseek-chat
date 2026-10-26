@@ -79,6 +79,11 @@ See [configuration](docs/configuration.md) for validation and precedence.
 
 ## Run and verify
 
+Run the full quality sequence with `pnpm verify`: format check, lint,
+typecheck, tests with per-file 90% coverage, then production builds. See
+[quality gates](docs/quality-gates.md) for what each stage proves. Use
+`pnpm format` to apply repository formatting intentionally.
+
 ```sh
 pnpm dev
 ```
@@ -90,23 +95,23 @@ If Vite selects another port, explicitly add that origin to `CORS_ORIGINS` and
 restart the backend. Requests with unknown Origin headers receive 403;
 requests without Origin remain available to local tools.
 
-| Command                                | Purpose                                                        |
-| -------------------------------------- | -------------------------------------------------------------- |
-| `pnpm dev:frontend`                    | Run the React application and its library watchers.            |
-| `pnpm dev:backend`                     | Run the API and shared-library watcher.                        |
-| `pnpm build:packages`                  | Compile internal libraries.                                    |
-| `pnpm typecheck`                       | Check all workspace packages.                                  |
-| `pnpm lint`                            | Run current frontend lint rules; backend lint arrives in P0.5. |
-| `pnpm test`                            | Run backend, frontend configuration/HTTP and React tests.      |
-| `pnpm --filter frontend test:ui:watch` | Watch React component tests during development.                |
-| `pnpm build`                           | Build libraries, the backend and the React application.        |
-| `pnpm --filter backend start`          | Run the compiled API after building.                           |
-| `pnpm --filter frontend preview`       | Preview the already-built frontend.                            |
+| Command                                | Purpose                                                   |
+| -------------------------------------- | --------------------------------------------------------- |
+| `pnpm dev:frontend`                    | Run the React application and its library watchers.       |
+| `pnpm dev:backend`                     | Run the API and shared-library watcher.                   |
+| `pnpm build:packages`                  | Compile internal libraries.                               |
+| `pnpm typecheck`                       | Check all workspace packages.                             |
+| `pnpm lint`                            | Lint applications, internal libraries and tooling.        |
+| `pnpm test`                            | Run backend, frontend configuration/HTTP and React tests. |
+| `pnpm --filter frontend test:ui:watch` | Watch React component tests during development.           |
+| `pnpm build`                           | Build libraries, the backend and the React application.   |
+| `pnpm --filter backend start`          | Run the compiled API after building.                      |
+| `pnpm --filter frontend preview`       | Preview the already-built frontend.                       |
 
 Tests need no real model or provider credentials. They use temporary storage
-and local ports. The current Vite bundle-size warning is documented and remains
-outside P0.3. JSON persistence is not safe for concurrent writers; PostgreSQL
-work is planned in phase 2.
+and local ports. The existing Vite bundle-size warning remains visible and is
+documented in [quality gates](docs/quality-gates.md). JSON persistence is not
+safe for concurrent writers; PostgreSQL work is planned in phase 2.
 
 ## Configuration ownership and workspace
 
@@ -125,6 +130,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Internal packages](docs/internal-packages.md)
 - [Backend composition and lifecycle](docs/backend-composition.md)
 - [Platform configuration](docs/configuration.md)
+- [Repository quality gates](docs/quality-gates.md)
 - [Automated test foundations](docs/testing.md)
 - [Repository and test rules](AGENTS.md)
 - [Architecture and MVP boundaries](docs/architecture.md)

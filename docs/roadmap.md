@@ -213,9 +213,11 @@ Still incomplete or only partial:
 
 **General description:** Add backend linting, consistent formatting and one root verification command.
 
+**Implementation:** [Repository quality gates](quality-gates.md) documents shared tooling, Express 4 type alignment, Web Vitals retirement, the visible bundle-size warning and `pnpm verify`. Verification includes the unchanged per-file 90% coverage gate; the complementary P0.4 change first closes coverage independently.
+
 **Acceptance criteria:**
 
-- Root commands cover format check, lint, typecheck, test and build for both applications.
+- Root commands cover format check, lint, typecheck, test and build for both applications and shared tooling. `pnpm verify` runs the complete sequence and fails on insufficient coverage or lint warnings.
 - Express runtime and type packages use compatible major versions.
 - Web Vitals is either deliberately connected to a reporting boundary or removed until observability is implemented.
 - Existing bundle-size warnings are documented rather than ignored.

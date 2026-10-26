@@ -7,13 +7,15 @@
   "license": "MIT",
   "scripts": {
     "dev": "nodemon --watch src --watch ../packages/shared/dist/cjs --ext ts,js,json src/server.ts --ignore \"src/logs/**\"",
-    "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format": "pnpm --workspace-root exec prettier backend --write",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint . --max-warnings 0",
+    "format:check": "pnpm --workspace-root exec prettier backend --check"
   },
   "dependencies": {
     "@chat-app/shared": "workspace:*",
@@ -23,12 +25,11 @@
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
+    "@types/express": "^4.17.21",
     "@types/node": "^26.6.5",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "5.0.5",
     "nodemon": "^3.1.9",
-    "prettier": "^3.4.2",
     "supertest": "^7.3.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
