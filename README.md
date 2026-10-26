@@ -90,17 +90,18 @@ If Vite selects another port, explicitly add that origin to `CORS_ORIGINS` and
 restart the backend. Requests with unknown Origin headers receive 403;
 requests without Origin remain available to local tools.
 
-| Command                          | Purpose                                                        |
-| -------------------------------- | -------------------------------------------------------------- |
-| `pnpm dev:frontend`              | Run the React application and its library watchers.            |
-| `pnpm dev:backend`               | Run the API and shared-library watcher.                        |
-| `pnpm build:packages`            | Compile internal libraries.                                    |
-| `pnpm typecheck`                 | Check all workspace packages.                                  |
-| `pnpm lint`                      | Run current frontend lint rules; backend lint arrives in P0.5. |
-| `pnpm test`                      | Run backend and frontend configuration/HTTP regression tests.  |
-| `pnpm build`                     | Build libraries, the backend and the React application.        |
-| `pnpm --filter backend start`    | Run the compiled API after building.                           |
-| `pnpm --filter frontend preview` | Preview the already-built frontend.                            |
+| Command                                | Purpose                                                        |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `pnpm dev:frontend`                    | Run the React application and its library watchers.            |
+| `pnpm dev:backend`                     | Run the API and shared-library watcher.                        |
+| `pnpm build:packages`                  | Compile internal libraries.                                    |
+| `pnpm typecheck`                       | Check all workspace packages.                                  |
+| `pnpm lint`                            | Run current frontend lint rules; backend lint arrives in P0.5. |
+| `pnpm test`                            | Run backend, frontend configuration/HTTP and React tests.      |
+| `pnpm --filter frontend test:ui:watch` | Watch React component tests during development.                |
+| `pnpm build`                           | Build libraries, the backend and the React application.        |
+| `pnpm --filter backend start`          | Run the compiled API after building.                           |
+| `pnpm --filter frontend preview`       | Preview the already-built frontend.                            |
 
 Tests need no real model or provider credentials. They use temporary storage
 and local ports. The current Vite bundle-size warning is documented and remains
@@ -124,6 +125,8 @@ components across the two surfaces of the same React app. Commit the root
 - [Internal packages](docs/internal-packages.md)
 - [Backend composition and lifecycle](docs/backend-composition.md)
 - [Platform configuration](docs/configuration.md)
+- [Automated test foundations](docs/testing.md)
+- [Repository and test rules](AGENTS.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 

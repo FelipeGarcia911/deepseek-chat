@@ -56,7 +56,8 @@ binding failures also produce exit code 1.
 ## Tests and limits
 
 `pnpm test` builds internal libraries and runs both applications' focused tests
-with Node's built-in runner. Backend tests compile TypeScript first. Lifecycle
+with Vitest. Unit and Supertest HTTP tests import source TypeScript directly;
+only the process suite builds the server executable. Lifecycle
 tests send an incomplete JSON request, request shutdown and then complete the
 body, proving that accepted requests drain without depending on a model.
 Other checks cover side-effect-free imports, startup configuration, CORS,
@@ -64,7 +65,8 @@ CRUD, immutable configuration and generation rejection without persistence.
 
 Tests use temporary files, independently composed apps and local HTTP ports.
 No Ollama instance, fake model provider or provider contract is required.
-Frontend/component test foundations remain P0.4; backend lint remains P0.5.
+Frontend/component coverage is documented in [test foundations](testing.md);
+backend lint remains P0.5.
 
 The file store still replaces complete history, treats read errors as an empty
 store and logs write failures without propagating them. It is not suitable
@@ -76,4 +78,4 @@ Vite bundle-size warning remains.
 References: [Express application API](https://expressjs.com/en/4x/api/),
 [Express graceful shutdown](https://expressjs.com/en/advanced/healthcheck-graceful-shutdown/),
 [Node HTTP lifecycle](https://nodejs.org/api/http.html#serverclosecallback),
-[Node test runner](https://nodejs.org/api/test.html).
+[automated test foundations](testing.md).

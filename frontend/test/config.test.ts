@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { test } from "vitest";
 import { parseFrontendConfig } from "../src/config/schema.ts";
 
-test("frontend configuration preserves custom origins and path prefixes while removing trailing slashes", () => {
+test("should preserve custom origins and path prefixes while removing trailing slashes", () => {
   const config = parseFrontendConfig({ VITE_API_BASE_URL: " https://gateway.example.test/platform/api/// " });
   assert.deepEqual(config, { apiBaseUrl: "https://gateway.example.test/platform/api" });
   assert.equal(Object.isFrozen(config), true);
@@ -14,7 +13,7 @@ test("frontend configuration preserves custom origins and path prefixes while re
 });
 
 for (const value of [undefined, "", " ", null, false, 4000]) {
-  test(`frontend rejects missing or non-string API URL ${JSON.stringify(value)}`, () => {
+  test(`should reject missing or non-string API URL ${JSON.stringify(value)}`, () => {
     assert.throws(() => parseFrontendConfig({ VITE_API_BASE_URL: value }), /VITE_API_BASE_URL is required/);
   });
 }
@@ -31,7 +30,7 @@ for (const value of [
   "https://example.test/api#",
   "http://localhost:4000/api # comment",
 ]) {
-  test(`frontend rejects invalid API URL ${JSON.stringify(value)}`, () => {
+  test(`should reject invalid API URL ${JSON.stringify(value)}`, () => {
     assert.throws(
       () => parseFrontendConfig({ VITE_API_BASE_URL: value }),
       /VITE_API_BASE_URL must be an HTTP\(S\) or root-relative API base URL/
@@ -39,24 +38,18 @@ for (const value of [
   });
 }
 
-test("frontend configuration errors never echo the supplied URL", () => {
+test("should omit supplied URLs from frontend configuration errors", () => {
   assert.throws(
     () => parseFrontendConfig({ VITE_API_BASE_URL: "https://user:private-value@example.test/api" }),
     (error) => {
+      assert.ok(error instanceof Error);
       assert.doesNotMatch(error.message, /private-value|user:|example\.test/);
       return true;
     }
   );
 });
 
-test("the frontend example has one clean public API base URL", () => {
-  const example = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
-  const entries = example.split("\n").filter((line) => line && !line.startsWith("#"));
-  assert.deepEqual(entries, ["VITE_API_BASE_URL=http://localhost:4000/api"]);
-  assert.doesNotThrow(() => parseFrontendConfig({ VITE_API_BASE_URL: entries[0].split("=")[1] }));
-});
-
-test("frontend configuration supports root-relative API paths and normalizes their trailing slashes", () => {
+test("should support root-relative API paths and normalize their trailing slashes", () => {
   assert.deepEqual(parseFrontendConfig({ VITE_API_BASE_URL: "/platform/api///" }), { apiBaseUrl: "/platform/api" });
   assert.deepEqual(parseFrontendConfig({ VITE_API_BASE_URL: "/" }), { apiBaseUrl: "" });
   for (const value of [

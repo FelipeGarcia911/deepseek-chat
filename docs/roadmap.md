@@ -180,16 +180,32 @@ Still incomplete or only partial:
 
 ### P0.4 — Establish automated test foundations
 
-**General description:** Add the minimum test stack for backend units, HTTP integration and essential React behavior.
+**General description:** Turn the existing P0.2/P0.3 regression checks into a sustainable TypeScript, HTTP and React testing strategy. Preserving observable behavior matters more than increasing the number of tests.
+
+**Implementation requirements:**
+
+- Use Vitest as the single runner for both applications and migrate existing `.test.cjs`/`.test.mjs` files to `.test.ts`/`.test.tsx`, preserving their regression intent.
+- Use a compatible Vite/Vitest combination. The implementation uses Vite 6.4.5 and Vitest 5.0.5, with no Vite major-version migration.
+- Import source TypeScript directly for unit and HTTP tests. Compile the executable only for process/lifecycle regressions.
+- Use Supertest for Express integration without manual listener or port management in HTTP tests. Supertest may bind an ephemeral local listener internally.
+- Use React Testing Library, user-event, jest-dom and jsdom for real component behavior.
+- Separate pure unit tests, HTTP integration, components and process/build regression tests. Keep unit tests free of network, filesystem and subprocess work.
+- Keep successful HTTP integration connected to the real ChatService and temporary JSON storage. Inject a failing service when testing dependency failures; do not mock every layer.
+- Include test files in typecheck and provide explicit single-run and watch commands.
 
 **Acceptance criteria:**
 
-- A unit test, API integration test and UI component test run from root scripts.
-- Tests cover at least one successful chat flow and one dependency failure.
-- Tests use isolated dependencies and do not require Ollama. Generation remains explicitly unavailable until model-gateway work; fake provider contracts belong to P3.1.
-- Test commands produce deterministic exit codes.
+- Root `pnpm test` runs backend and frontend TypeScript tests through Vitest and propagates deterministic exit codes.
+- Existing configuration validation, accumulated errors, normalization, immutability, CORS, startup, shutdown, API URL and build regressions retain their coverage.
+- Supertest covers create/list/history/delete, generation's stable 503 without history changes, dependency failure and isolation between two applications.
+- React tests cover button/Enter submission, whitespace rejection, user messages, assistant Markdown, loading, conversation creation/navigation and recovery after a failed request.
+- Rejected generation clears frontend loading and adds no fabricated assistant answer. Generation remains deliberately unavailable until Model Gateway work; no fake provider contract is introduced.
+- Tests use isolated stores, dependencies and temporary data, restore mocks/environment, clean up resources, and need no internet, Ollama, sleeps or execution order.
+- Typecheck, current lint, format checks and builds pass. No Playwright, Cypress or MSW is required yet.
+- Test names begin with `should`, tests/setup contain no additional comments, and coverage reaches at least 90% for statements, branches, functions and lines in every production source file. `pnpm test:coverage` enforces the coverage gate; passing behavior checks alone does not complete this requirement.
+- [Testing documentation](testing.md) explains the pyramid, test doubles, commands, compatibility and remaining limits. Code and documentation remain English.
 
-**Technical justification and learning:** Later refactors affect storage, model calls and streaming simultaneously. Tests create the safety net needed to learn by changing real code. Learn the test pyramid and test doubles.
+**Technical justification and learning:** One runner and typed tests make future refactors easier to maintain. Learn how unit, integration and component tests protect different boundaries; distinguish stubs, fakes, spies and mocks; verify observable behavior instead of private implementation details.
 
 **Suggested commit:** `test: establish api and web test foundations`
 

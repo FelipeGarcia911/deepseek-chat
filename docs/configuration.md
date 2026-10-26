@@ -157,15 +157,16 @@ Tests use temporary storage and local HTTP listeners. They cover pure parsing,
 immutability, required fields, port ranges, origin normalization, CORS,
 independent application configurations, startup failures, CRUD without a model
 and side-effect-free generation rejection. Frontend tests verify API URL
-consumption, clear validation errors and the production bundle. UI component
-test foundations remain P0.4; existing lint covers the frontend until P0.5.
+consumption, clear validation errors and the production bundle. P0.4 migrates
+these regressions to Vitest and adds [React component tests](testing.md);
+existing lint covers the frontend until P0.5.
 Typecheck alone does not validate actual deployment environment values.
 
 References: [Express CORS](https://expressjs.com/en/resources/middleware/cors/),
 [dotenv](https://github.com/motdotla/dotenv),
 [Vite environment variables](https://v6.vite.dev/guide/env-and-mode).
 
-## Verification result
+## P0.3 verification result
 
 All 89 tests passed with Node 26.12.1 and pnpm 12.14.0: 63 backend checks
 and 26 frontend checks. Formatting, local links, frozen installation,
@@ -173,3 +174,4 @@ workspace typecheck, existing lint and the full build passed. Additional
 origin cases reject wildcard hosts and URL spellings that would otherwise
 normalize into a valid origin. The existing Vite bundle-size warning remains.
 No live model, provider credentials or external generation request was needed.
+For the current migrated suite and P0.4 verification, see [test foundations](testing.md).

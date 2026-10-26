@@ -1,9 +1,7 @@
-const assert = require("node:assert/strict");
-const { readFileSync } = require("node:fs");
-const path = require("node:path");
-const { test } = require("node:test");
-const dotenv = require("dotenv");
-const { ConfigurationError, loadConfig } = require("../dist/config");
+import assert from "node:assert/strict";
+import path from "node:path";
+import { test } from "vitest";
+import { ConfigurationError, loadConfig } from "../src/config";
 
 const environment = {
   NODE_ENV: "development",
@@ -13,7 +11,7 @@ const environment = {
 };
 const backendDirectory = path.resolve(__dirname, "..");
 
-test("platform configuration is typed and deeply immutable for its scalar and origin-list values", () => {
+test("should return typed platform configuration that is deeply immutable for its scalar and origin-list values", () => {
   const config = loadConfig(environment);
   assert.deepEqual(config, {
     nodeEnv: "development",
@@ -23,10 +21,10 @@ test("platform configuration is typed and deeply immutable for its scalar and or
   });
   assert.ok(Object.isFrozen(config));
   assert.ok(Object.isFrozen(config.corsOrigins));
-  assert.throws(() => config.corsOrigins.push("https://unapproved.example"), TypeError);
+  assert.throws(() => (config.corsOrigins as string[]).push("https://unapproved.example"), TypeError);
 });
 
-test("configuration parsing does not mutate its input and normalizes and deduplicates origins", () => {
+test("should preserve configuration input and normalize and deduplicate origins", () => {
   const input = Object.freeze({
     ...environment,
     PORT: " 8081 ",
@@ -41,19 +39,19 @@ test("configuration parsing does not mutate its input and normalizes and dedupli
 
 for (const key of Object.keys(environment)) {
   for (const value of [undefined, "", " "]) {
-    test(`platform configuration requires a non-empty ${key} (${JSON.stringify(value)})`, () => {
+    test(`should require a non-empty ${key} (${JSON.stringify(value)})`, () => {
       assert.throws(() => loadConfig({ ...environment, [key]: value }), new RegExp(`${key}: required`));
     });
   }
 }
 
 for (const value of ["0", "-1", "65536", "3.5", "4e3", "0xFA0", "4000abc", "NaN"]) {
-  test(`platform configuration rejects invalid port ${JSON.stringify(value)}`, () => {
+  test(`should reject invalid port ${JSON.stringify(value)}`, () => {
     assert.throws(() => loadConfig({ ...environment, PORT: value }), /PORT: must be an integer from 1 to 65535/);
   });
 }
 
-test("port boundaries and all supported node environments are accepted", () => {
+test("should accept port boundaries and all supported node environments", () => {
   assert.equal(loadConfig({ ...environment, PORT: "1" }).port, 1);
   assert.equal(loadConfig({ ...environment, PORT: "65535" }).port, 65535);
   for (const nodeEnv of ["development", "test", "production"]) {
@@ -85,7 +83,7 @@ for (const value of [
   "https://example.test,,http://localhost:5173",
   "https://bad origin.test",
 ]) {
-  test(`platform configuration rejects malformed CORS origins ${JSON.stringify(value)}`, () => {
+  test(`should reject malformed CORS origins ${JSON.stringify(value)}`, () => {
     for (const nodeEnv of ["development", "production"]) {
       assert.throws(() => loadConfig({ ...environment, NODE_ENV: nodeEnv, CORS_ORIGINS: value }), /CORS_ORIGINS:/);
     }
@@ -93,12 +91,12 @@ for (const value of [
 }
 
 for (const value of ["data/", "chats.txt", "bad\0path.json", "bad\npath.json"]) {
-  test(`platform configuration rejects invalid storage path ${JSON.stringify(value)}`, () => {
+  test(`should reject invalid storage path ${JSON.stringify(value)}`, () => {
     assert.throws(() => loadConfig({ ...environment, CHAT_STORAGE_PATH: value }), /CHAT_STORAGE_PATH:/);
   });
 }
 
-test("storage paths resolve against the backend package rather than cwd or the services directory", () => {
+test("should resolve storage paths against the backend package rather than cwd or the services directory", () => {
   assert.equal(loadConfig(environment).chatStoragePath, path.resolve(backendDirectory, "data/chats.json"));
   const explicitBase = path.resolve("alternate-backend");
   assert.equal(loadConfig(environment, explicitBase).chatStoragePath, path.join(explicitBase, "data/chats.json"));
@@ -106,7 +104,7 @@ test("storage paths resolve against the backend package rather than cwd or the s
   assert.equal(loadConfig({ ...environment, CHAT_STORAGE_PATH: absolute }, explicitBase).chatStoragePath, absolute);
 });
 
-test("configuration errors aggregate fields without exposing supplied values", () => {
+test("should aggregate configuration errors without exposing supplied values", () => {
   assert.throws(
     () =>
       loadConfig({
@@ -123,10 +121,4 @@ test("configuration errors aggregate fields without exposing supplied values", (
       return true;
     }
   );
-});
-
-test("the backend example contains only the required platform settings with clean values", () => {
-  const example = dotenv.parse(readFileSync(path.join(__dirname, "../.env.example")));
-  assert.deepEqual(example, environment);
-  assert.doesNotThrow(() => loadConfig(example));
 });

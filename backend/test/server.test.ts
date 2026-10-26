@@ -1,33 +1,36 @@
-const assert = require("node:assert/strict");
-const { spawn } = require("node:child_process");
-const { once } = require("node:events");
-const { mkdir, mkdtemp, readFile, rm, writeFile } = require("node:fs/promises");
-const { createServer, request } = require("node:http");
-const { tmpdir } = require("node:os");
-const path = require("node:path");
-const { test } = require("node:test");
-const { setTimeout: delay } = require("node:timers/promises");
+import assert from "node:assert/strict";
+import { execFileSync, spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { createServer, request, type ClientRequest } from "node:http";
+import { createRequire } from "node:module";
+import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { beforeAll, test, type TestContext } from "vitest";
+beforeAll(() => {
+  const require = createRequire(import.meta.url);
+  execFileSync(process.execPath, [require.resolve("typescript/bin/tsc")], {
+    cwd: path.resolve(__dirname, ".."),
+    timeout: 20_000,
+  });
+}, 30_000);
 
 const serverPath = path.resolve(__dirname, "../dist/server.js");
-
-async function waitUntil(predicate) {
-  for (let attempt = 0; attempt < 500; attempt++) {
-    if (predicate()) return;
-    await delay(10);
-  }
-  throw new Error("Timed out waiting for the server lifecycle event");
-}
 
 async function availablePort() {
   const reservation = createServer();
   reservation.listen(0);
   await once(reservation, "listening");
-  const port = reservation.address().port;
-  await new Promise((resolve) => reservation.close(resolve));
+  const port = (reservation.address() as AddressInfo).port;
+  await new Promise<void>((resolve, reject) => reservation.close((error) => (error ? reject(error) : resolve())));
   return String(port);
 }
 
-async function launch(t, environment = {}, envFile) {
+type Environment = NodeJS.ProcessEnv | ((storagePath: string) => NodeJS.ProcessEnv);
+type EnvFile = string | ((storagePath: string) => string);
+
+async function launch(t: TestContext, environment: Environment = {}, envFile?: EnvFile) {
   const directory = await mkdtemp(path.join(tmpdir(), "chat-server-test-"));
   const storagePath = path.join(directory, "chats.json");
   await writeFile(storagePath, "[]");
@@ -53,7 +56,28 @@ async function launch(t, environment = {}, envFile) {
     output += chunk;
   });
   const exited = once(child, "exit");
-  t.after(async () => {
+  function waitForOutput(pattern: RegExp) {
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => finish(new Error(`Missing lifecycle output: ${pattern}`)), 5000);
+      const inspect = () => {
+        if (pattern.test(output)) finish();
+        else if (child.exitCode !== null || child.signalCode !== null) finish(new Error(output));
+      };
+      const finish = (error?: Error) => {
+        clearTimeout(timeout);
+        child.stdout.off("data", inspect);
+        child.stderr.off("data", inspect);
+        child.off("exit", inspect);
+        if (error) reject(error);
+        else resolve();
+      };
+      child.stdout.on("data", inspect);
+      child.stderr.on("data", inspect);
+      child.on("exit", inspect);
+      inspect();
+    });
+  }
+  t.onTestFinished(async () => {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
     await exited;
     await rm(directory, { recursive: true, force: true });
@@ -63,21 +87,22 @@ async function launch(t, environment = {}, envFile) {
     exited,
     storagePath,
     output: () => output,
+    waitForOutput,
     async ready() {
-      await waitUntil(() => /Server running on http:\/\/localhost:\d+/.test(output) || child.exitCode !== null);
+      await waitForOutput(/Server running on http:\/\/localhost:\d+/);
       assert.equal(child.exitCode, null, output);
-      const port = output.match(/Server running on http:\/\/localhost:(\d+)/)[1];
+      const port = output.match(/Server running on http:\/\/localhost:(\d+)/)![1];
       return `http://127.0.0.1:${port}/api/chats`;
     },
   };
 }
 
-for (const signal of ["SIGTERM", "SIGINT"]) {
-  test(`${signal} drains an accepted HTTP request before exiting`, { timeout: 10_000 }, async (t) => {
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  test(`should drain an accepted HTTP request after ${signal} before exiting`, { timeout: 10_000 }, async (t) => {
     const running = await launch(t);
     const url = await running.ready();
-    let client;
-    const pending = new Promise((resolve, reject) => {
+    let client!: ClientRequest;
+    const pending = new Promise<{ status: number | undefined; body: { title: string } }>((resolve, reject) => {
       client = request(
         `${url}/new`,
         { method: "POST", headers: { "Content-Type": "application/json", Connection: "close" } },
@@ -92,10 +117,12 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
       client.on("error", reject);
       client.write('{"title":');
     });
-    t.after(() => client.destroy());
-    await waitUntil(() => running.output().includes("POST /api/chats/new"));
+    t.onTestFinished(() => {
+      client.destroy();
+    });
+    await running.waitForOutput(/POST \/api\/chats\/new/);
     running.child.kill(signal);
-    await waitUntil(() => running.output().includes(`${signal} received: closing HTTP server`));
+    await running.waitForOutput(new RegExp(`${signal} received: closing HTTP server`));
     await assert.rejects(fetch(`${url}/list`));
     assert.equal(running.child.exitCode, null);
     client.end('"Synthetic private title"}');
@@ -112,7 +139,7 @@ for (const signal of ["SIGTERM", "SIGINT"]) {
 }
 
 test(
-  "the backend starts without a model and reads configuration from its executable env-file boundary",
+  "should start without a model and read configuration from its executable env-file boundary",
   { timeout: 10_000 },
   async (t) => {
     const port = await availablePort();
@@ -131,7 +158,7 @@ test(
   }
 );
 
-test("process configuration takes priority over the env file", { timeout: 10_000 }, async (t) => {
+test("should prioritize process configuration over the env file", { timeout: 10_000 }, async (t) => {
   const port = await availablePort();
   const running = await launch(
     t,
@@ -150,7 +177,7 @@ test("process configuration takes priority over the env file", { timeout: 10_000
   assert.equal((await running.exited)[0], 0);
 });
 
-test("missing required platform settings fail before listening", { timeout: 10_000 }, async (t) => {
+test("should reject missing required platform settings before listening", { timeout: 10_000 }, async (t) => {
   const running = await launch(t, { NODE_ENV: "", PORT: "", CORS_ORIGINS: "", CHAT_STORAGE_PATH: "" });
   assert.equal((await running.exited)[0], 1);
   for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH"])
@@ -159,7 +186,7 @@ test("missing required platform settings fail before listening", { timeout: 10_0
 });
 
 test(
-  "invalid platform settings fail together without exposing values or opening HTTP",
+  "should reject invalid platform settings together without exposing values or opening HTTP",
   { timeout: 10_000 },
   async (t) => {
     const running = await launch(t, {
@@ -176,18 +203,20 @@ test(
   }
 );
 
-test("a port binding error exits unsuccessfully", { timeout: 10_000 }, async (t) => {
+test("should exit unsuccessfully for a port binding error", { timeout: 10_000 }, async (t) => {
   const occupied = createServer();
-  t.after(() => new Promise((resolve) => occupied.close(resolve)));
+  t.onTestFinished(
+    () => new Promise<void>((resolve, reject) => occupied.close((error) => (error ? reject(error) : resolve())))
+  );
   occupied.listen(0);
   await once(occupied, "listening");
-  const running = await launch(t, { PORT: String(occupied.address().port) });
+  const running = await launch(t, { PORT: String((occupied.address() as AddressInfo).port) });
   assert.equal((await running.exited)[0], 1);
   assert.match(running.output(), /Failed to start HTTP server:/);
   assert.match(running.output(), /EADDRINUSE/);
 });
 
-test("an unreadable env file fails at the startup boundary", { timeout: 10_000 }, async (t) => {
+test("should reject an unreadable env file at the startup boundary", { timeout: 10_000 }, async (t) => {
   const running = await launch(t, {}, "directory");
   assert.equal((await running.exited)[0], 1);
   assert.match(running.output(), /could not be read; check the file location and permissions/);

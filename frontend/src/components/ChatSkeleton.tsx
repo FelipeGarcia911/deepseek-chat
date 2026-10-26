@@ -5,6 +5,8 @@ const ChatSkeleton = () => {
 
   return (
     <Box
+      role="status"
+      aria-label="Generating response"
       sx={{
         alignSelf: "flex-start",
         bgcolor: theme.palette.background.paper,
