@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:4000/api/chats";
+import { config } from "../config";
 
 export interface Message {
   text: string;
@@ -25,7 +25,7 @@ class ChatService {
       const response = await axios.get(`${this.apiUrl}/list`);
       return response.data;
     } catch (error) {
-      console.error("❌ Error al obtener chats:", error);
+      console.error("❌ Failed to fetch chats:", error);
       return [];
     }
   }
@@ -35,7 +35,7 @@ class ChatService {
       const response = await axios.post(`${this.apiUrl}/new`, { title });
       return response.data;
     } catch (error) {
-      console.error("❌ Error al crear un chat:", error);
+      console.error("❌ Failed to create chat:", error);
       return null;
     }
   }
@@ -44,7 +44,7 @@ class ChatService {
     try {
       await axios.delete(`${this.apiUrl}/${chatId}`);
     } catch (error) {
-      console.error(`❌ Error al eliminar el chat ${chatId}:`, error);
+      console.error(`❌ Failed to delete chat ${chatId}:`, error);
     }
   }
 
@@ -53,20 +53,15 @@ class ChatService {
       const response = await axios.get(`${this.apiUrl}/${chatId}/history`);
       return response.data;
     } catch (error) {
-      console.error(`❌ Error al obtener el historial del chat ${chatId}:`, error);
+      console.error(`❌ Failed to fetch history for chat ${chatId}:`, error);
       return [];
     }
   }
 
   async sendMessage(chatId: string, message: string): Promise<string> {
-    try {
-      const response = await axios.post(`${this.apiUrl}/${chatId}/message`, { message, chatId });
-      return response.data.response;
-    } catch (error) {
-      console.error(`❌ Error al enviar mensaje al chat ${chatId}:`, error);
-      return "Error al conectar con el servidor.";
-    }
+    const response = await axios.post(`${this.apiUrl}/${chatId}/message`, { message, chatId });
+    return response.data.response;
   }
 }
 
-export default new ChatService(API_URL);
+export default new ChatService(`${config.apiBaseUrl}/chats`);

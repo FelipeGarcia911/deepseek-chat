@@ -1,18 +1,15 @@
 import { Request, Response } from "express";
 import type ChatService from "../services/ChatService";
-import type OllamaService from "../services/OllamaService";
 
 enum ChatServiceMethod {
   GetChats = "getChats",
   CreateChat = "createChat",
   GetChatHistory = "getChatHistory",
-  SaveMessage = "saveMessage",
   DeleteChat = "deleteChat",
 }
 
 export interface ChatControllerDependencies {
   chatService: Pick<ChatService, ChatServiceMethod>;
-  ollamaService: Pick<OllamaService, "sendMessageWithHistory">;
 }
 
 class ChatController {
@@ -56,35 +53,11 @@ class ChatController {
     }
   };
 
-  sendMessage = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { chatId, message } = req.body;
-
-      if (!chatId || !message) {
-        res.status(400).json({ error: "Both chatId and message are required." });
-        return;
-      }
-
-      // Save the user's message
-      await this.dependencies.chatService.saveMessage(chatId, "user", message);
-
-      // Retrieve the chat history to maintain context
-      const chatHistory = (await this.dependencies.chatService.getChatHistory(chatId)).map((msg) => ({
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.text,
-      }));
-
-      // Send the chat history to the AI model
-      const botResponse = await this.dependencies.ollamaService.sendMessageWithHistory(chatHistory);
-
-      // Save the AI's response
-      await this.dependencies.chatService.saveMessage(chatId, "bot", botResponse);
-
-      res.json({ response: botResponse });
-    } catch (error) {
-      console.error("❌ Error in sendMessage:", error);
-      res.status(500).json({ error: "Server error while processing the message." });
-    }
+  sendMessage = async (_req: Request, res: Response): Promise<void> => {
+    res.status(503).json({
+      code: "MODEL_NOT_CONFIGURED",
+      error: "No Model Profile has been configured.",
+    });
   };
 
   deleteChat = async (req: Request, res: Response): Promise<void> => {

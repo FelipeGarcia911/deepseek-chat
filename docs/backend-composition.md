@@ -1,119 +1,79 @@
-# Backend construction and process lifecycle
+# Backend composition and process lifecycle
 
-Task: P0.2 in the [roadmap](roadmap.md). This refactor creates a testable
-application boundary while retaining the existing chat routes and JSON store.
-
-## Acceptance criteria
-
-- Importing application modules does not open a port, load environment files,
-  create global service instances or read chat storage.
-- Express can be constructed with explicit controller dependencies.
-- The executable entry point owns startup and shutdown.
-- Existing routes work with an injected model, including dependency failure.
+P0.2 introduced explicit construction and startup boundaries. P0.3 refines them
+with [platform configuration](configuration.md) and removes the prototype's
+direct model composition. See the [roadmap](roadmap.md) for the task sequence.
 
 ## Responsibilities
 
-| File                                        | Responsibility                                                                                                                                         |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `backend/src/app.ts`                        | `createApp(dependencies)` constructs Express middleware, a controller and routers. It returns an app without listening.                                |
-| `backend/src/composition.ts`                | `createApplication()` creates the real JSON and Ollama services, awaits storage initialization and supplies them to `createApp`.                       |
-| `backend/src/server.ts`                     | Loads `.env`, requests the composed app, starts HTTP and handles startup failure, SIGTERM and SIGINT. Importing the file does not execute startup.     |
-| `backend/src/controllers/ChatController.ts` | Receives the narrow service methods it uses through `ChatControllerDependencies`. Handler arrow functions retain the instance when Express calls them. |
-| `backend/src/routes/`                       | Router factories register handlers from the supplied controller instead of importing a global instance.                                                |
-| `backend/src/services/`                     | Exports service classes; constructors receive their settings and do not load `.env` or start file reads.                                               |
+| File                                        | Responsibility                                                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/src/config.ts`                     | Pure `loadConfig(env): AppConfig`; validation and normalization only.                                                                       |
+| `backend/src/server.ts`                     | Loads dotenv at executable startup, validates the process environment once, starts HTTP and handles shutdown or startup failure.            |
+| `backend/src/composition.ts`                | Receives `AppConfig`, prepares the configured storage parent, initializes `ChatService` and constructs the app. No provider is constructed. |
+| `backend/src/app.ts`                        | Receives controller dependencies and only the HTTP environment/origin settings; constructs middleware and routers without listening.        |
+| `backend/src/controllers/ChatController.ts` | Receives the narrow storage methods named by `ChatServiceMethod`; exposes CRUD and the explicit unconfigured-model response.                |
+| `backend/src/routes/`                       | Creates routers from the supplied controller rather than importing global service instances.                                                |
+| `backend/src/services/ChatService.ts`       | Receives an absolute file path and initializes storage explicitly; never reads environment variables.                                       |
 
-The composition root is the place where concrete implementations are selected
-and connected. Production uses the existing file store and Ollama client;
-tests use temporary file stores and deterministic model substitutes. No DI
-container is needed: passing objects through constructors and functions makes
-the wiring visible.
+The composition root chooses and connects concrete implementations. There is
+no DI container and no current model dependency. Imports of app, composition,
+configuration, controllers and services do not load dotenv, read storage,
+create directories or open ports.
 
-Controller dependencies currently use TypeScript `Pick` to describe only the
-existing public service methods; the `ChatServiceMethod` enum names the allowed
-chat-service keys. Type-only imports disappear at compilation,
-so importing a controller does not construct either service. This is a small
-preparatory boundary; provider-independent model contracts and repository
-interfaces remain in their respective roadmap phases.
+`server.ts` loads dotenv only when executed as the entry point. It passes
+`process.env` once to the pure parser, then passes `AppConfig` explicitly into
+composition. The parser's node environment and CORS list are passed to HTTP
+setup; the storage service receives only its absolute path. Application services,
+controllers and routes do not inspect process environment.
 
-## Initialization and shutdown
+Storage is initialized before listening. Relative `CHAT_STORAGE_PATH` values
+resolve from the backend package, so source and compiled execution select the
+same file. `backend/data/` is ignored by Git. No prototype path fallback or
+automatic data migration is provided.
 
-Startup order is explicit:
+## HTTP behavior
 
-1. Load environment values from the process working directory.
-2. Construct services with the storage path, Ollama URL and model name.
-3. Await the initial chat-history load.
-4. Construct Express and open the HTTP listener.
+CRUD remains available without any configured model. The generation endpoint
+returns HTTP 503 with code `MODEL_NOT_CONFIGURED` and an explanatory `error`
+string. It does not save user input, construct an assistant answer or make an
+external request. The direct Ollama service and its controller/composition
+dependencies are removed. The future model contract is intentionally deferred
+to P3.1, rather than replaced with a temporary adapter.
 
-Awaiting storage initialization removes the race between the first HTTP
-request and the initial file read. The existing path calculation is retained:
-`LOGS_PATH` is resolved with `path.join` relative to the services directory.
-The default remains `../logs/chats.json`. Typed configuration and path-policy
-improvements belong to P0.3 and the persistence work.
+Configured CORS origins and preflight requests are accepted. Unknown origins
+receive 403 before handlers run; requests without Origin remain supported.
+Authentication and the final error taxonomy are separate future tasks.
+
+## Shutdown
 
 SIGTERM and SIGINT stop new connections and allow active HTTP requests to
-complete. After the server closes, signal handlers and the shutdown timer are
-removed. A fixed ten-second grace period bounds shutdown; exceeding it forces
-connections closed and exits unsuccessfully. Missing required model settings
-or a listener binding error also produces exit code 1.
+complete. After the listener closes, signal handlers and the shutdown timer
+are removed. The fixed ten-second grace period forces an unsuccessful exit if
+requests cannot finish. Invalid configuration, unreadable env files and listener
+binding failures also produce exit code 1.
 
-The runtime behavior remains HTTP JSON without streaming. The generic Express
-error message is now English (`Internal server error`); existing controller
-error responses retain their messages and status codes. Successful requests
-no longer print message or model-response content to the console. Structured
-logging, comprehensive redaction, cancellation of upstream generation and
-configurable model timeouts remain future work.
+## Tests and limits
 
-## Running the checks
+`pnpm test` builds internal libraries and runs both applications' focused tests
+with Node's built-in runner. Backend tests compile TypeScript first. Lifecycle
+tests send an incomplete JSON request, request shutdown and then complete the
+body, proving that accepted requests drain without depending on a model.
+Other checks cover side-effect-free imports, startup configuration, CORS,
+CRUD, immutable configuration and generation rejection without persistence.
 
-From the repository root:
+Tests use temporary files, independently composed apps and local HTTP ports.
+No Ollama instance, fake model provider or provider contract is required.
+Frontend/component test foundations remain P0.4; backend lint remains P0.5.
 
-```sh
-nvm use
-pnpm test
-pnpm typecheck
-pnpm lint
-pnpm build
-```
-
-`pnpm test` builds internal libraries, compiles the backend and runs its
-`test/*.test.cjs` files with Node's built-in test runner. No test dependency
-was added. Tests use generated JavaScript so they exercise the same module
-format as production. Full backend/frontend test foundations remain P0.4;
-existing linting still covers only the frontend until P0.5.
-
-The focused regression tests cover:
-
-- Imports without listeners, storage reads or environment loading.
-- List, create, history, delete and successful message requests.
-- Persisted user/assistant messages and existing invalid-input responses.
-- Injected model failure and independent app instances.
-- SIGTERM/SIGINT draining an active generation against a local fake provider.
-- Startup failure from missing model settings or an occupied port.
-- Exclusion of synthetic message and response text from successful request logs.
-
-HTTP tests open ephemeral local ports and remove temporary files and processes
-on completion. They require no running Ollama instance or real model. This
-makes dependency injection observable: model failure is controlled by the test
-rather than by the developer's local machine.
-
-## Remaining limits
-
-The file store still replaces the entire history, treats read errors as an
-empty store and logs write failures without propagating them. This task does
-not make it safe for concurrent writers or multiple API processes. Controllers
-still orchestrate persistence and generation, and broad error handling remains.
-Those changes belong to the contracts, persistence and model-gateway phases.
-The existing Vite bundle-size warning also remains.
+The file store still replaces complete history, treats read errors as an empty
+store and logs write failures without propagating them. It is not suitable
+for concurrent writers or multiple API processes; persistence work will
+replace it. Request validation, application services, authentication and
+structured telemetry remain in their assigned roadmap phases. The previous
+Vite bundle-size warning remains.
 
 References: [Express application API](https://expressjs.com/en/4x/api/),
 [Express graceful shutdown](https://expressjs.com/en/advanced/healthcheck-graceful-shutdown/),
-[Node HTTP server lifecycle](https://nodejs.org/api/http.html#serverclosecallback)
-and [Node test runner](https://nodejs.org/api/test.html).
-
-## Verification result
-
-All ten backend regression and lifecycle tests passed with Node 26.12.1.
-The ts-node development entry also started and returned the initialized chat
-list. Formatting checks, local documentation links, workspace typecheck,
-existing lint and the full build passed. The existing Vite size warning
-remains; no real Ollama instance was required for these checks.
+[Node HTTP lifecycle](https://nodejs.org/api/http.html#serverclosecallback),
+[Node test runner](https://nodejs.org/api/test.html).

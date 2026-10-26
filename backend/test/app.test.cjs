@@ -6,26 +6,15 @@ const { createServer } = require("node:http");
 const { tmpdir } = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
+const { loadConfig } = require("../dist/config");
+const { createApplication } = require("../dist/composition");
 
-const { createApp } = require("../dist/app");
-const ChatService = require("../dist/services/ChatService").default;
-
-async function fixture(t, generate = async () => "Test response") {
+async function fixture(t, origins = "https://allowed.example.test", nodeEnv = "test") {
   const directory = await mkdtemp(path.join(tmpdir(), "chat-app-test-"));
-  const storagePath = path.join(directory, "chats.json");
-  await writeFile(storagePath, JSON.stringify([{ id: "chat-1", title: "Test chat", messages: [] }]));
-  const chatService = new ChatService(storagePath);
-  await chatService.initialize();
-  const calls = [];
-  const app = createApp({
-    chatService,
-    ollamaService: {
-      async sendMessageWithHistory(messages) {
-        calls.push(structuredClone(messages));
-        return generate(messages);
-      },
-    },
-  });
+  const storagePath = path.join(directory, "nested/chats.json");
+  const config = loadConfig({ NODE_ENV: nodeEnv, PORT: "4000", CORS_ORIGINS: origins, CHAT_STORAGE_PATH: storagePath });
+  const app = await createApplication(config);
+  await writeFile(storagePath, "[]");
   const server = createServer(app);
   t.after(async () => {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
@@ -33,33 +22,29 @@ async function fixture(t, generate = async () => "Test response") {
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const url = `http://127.0.0.1:${server.address().port}/api/chats`;
-  return { url, calls, storagePath };
+  return { app, config, storagePath, url: `http://127.0.0.1:${server.address().port}/api/chats` };
 }
 
-function post(url, body) {
+function post(url, body, headers = {}) {
   return fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
 
-test("importing application modules does not listen, read storage or require model configuration", () => {
+test("importing application modules does not listen, read storage, create directories or load dotenv", () => {
   execFileSync(
     process.execPath,
     [
       "-e",
       `
     const assert = require('node:assert/strict');
-    delete process.env.OLLAMA_API_URL;
-    delete process.env.MODEL_NAME;
     require('node:net').Server.prototype.listen = () => { throw new Error('Unexpected listener'); };
     require('node:fs/promises').readFile = () => { throw new Error('Unexpected storage read'); };
+    require('node:fs/promises').mkdir = () => { throw new Error('Unexpected directory creation'); };
     require('dotenv').config = () => { throw new Error('Unexpected environment loading'); };
-    for (const name of ['app', 'composition', 'server', 'controllers/ChatController', 'services/ChatService', 'services/OllamaService']) {
-      require('./dist/' + name);
-    }
+    for (const name of ['app', 'composition', 'server', 'config', 'controllers/ChatController', 'services/ChatService']) require('./dist/' + name);
     assert.equal(typeof require('./dist/app').createApp, 'function');
   `,
     ],
@@ -67,70 +52,100 @@ test("importing application modules does not listen, read storage or require mod
   );
 });
 
-test("injected services preserve list, create, history and delete routes", async (t) => {
+test("list, create, history and delete work without a configured model", async (t) => {
   const { url } = await fixture(t);
-  const listed = await fetch(`${url}/list`);
-  assert.equal(listed.status, 200);
-  assert.deepEqual(await listed.json(), [{ id: "chat-1", title: "Test chat" }]);
-
-  const created = await post(`${url}/new`, { title: "Another chat" });
+  const initial = await fetch(`${url}/list`);
+  assert.equal(initial.status, 200);
+  assert.deepEqual(await initial.json(), []);
+  const created = await post(`${url}/new`, { title: "Test chat" });
   assert.equal(created.status, 201);
   const chat = await created.json();
-  assert.equal(chat.title, "Another chat");
+  assert.equal(chat.title, "Test chat");
   assert.equal(typeof chat.id, "string");
+  const listed = await fetch(`${url}/list`);
+  assert.deepEqual(await listed.json(), [{ id: chat.id, title: "Test chat" }]);
   const history = await fetch(`${url}/${chat.id}/history`);
   assert.deepEqual(await history.json(), []);
-
   const deleted = await fetch(`${url}/${chat.id}`, { method: "DELETE" });
   assert.equal(deleted.status, 200);
   assert.deepEqual(await deleted.json(), { message: "Chat deleted successfully." });
   const remaining = await fetch(`${url}/list`);
-  assert.deepEqual(await remaining.json(), [{ id: "chat-1", title: "Test chat" }]);
+  assert.deepEqual(await remaining.json(), []);
 });
 
-test("a message uses the injected model and persists both messages", async (t) => {
-  const { url, calls, storagePath } = await fixture(t);
-  const response = await post(`${url}/chat-1/message`, { chatId: "chat-1", message: "Test question" });
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { response: "Test response" });
-  assert.deepEqual(calls, [[{ role: "user", content: "Test question" }]]);
-  const history = await fetch(`${url}/chat-1/history`);
-  const expected = [
-    { text: "Test question", sender: "user" },
-    { text: "Test response", sender: "bot" },
-  ];
-  assert.deepEqual(await history.json(), expected);
-  assert.deepEqual(JSON.parse(await readFile(storagePath, "utf8"))[0].messages, expected);
-});
-
-test("model failure preserves the HTTP error contract without inventing an assistant response", async (t) => {
-  const { url } = await fixture(t, async () => {
-    throw new Error("Model unavailable");
-  });
-  const response = await post(`${url}/chat-1/message`, { chatId: "chat-1", message: "Test question" });
-  assert.equal(response.status, 500);
-  assert.deepEqual(await response.json(), { error: "Server error while processing the message." });
-  const history = await fetch(`${url}/chat-1/history`);
-  assert.deepEqual(await history.json(), [{ text: "Test question", sender: "user" }]);
-});
-
-test("existing invalid-input responses do not call the model", async (t) => {
-  const { url, calls } = await fixture(t);
-  const title = await post(`${url}/new`, {});
-  assert.equal(title.status, 400);
-  assert.deepEqual(await title.json(), { error: "Chat title is required." });
-  const message = await post(`${url}/chat-1/message`, { chatId: "chat-1" });
-  assert.equal(message.status, 400);
-  assert.deepEqual(await message.json(), { error: "Both chatId and message are required." });
-  assert.equal(calls.length, 0);
-});
-
-test("independently constructed apps do not share their injected dependencies", async (t) => {
-  const first = await fixture(t, async () => "First model");
-  const second = await fixture(t, async () => "Second model");
-  const response = await post(`${first.url}/chat-1/message`, { chatId: "chat-1", message: "Test question" });
-  assert.deepEqual(await response.json(), { response: "First model" });
-  assert.equal(second.calls.length, 0);
-  const history = await fetch(`${second.url}/chat-1/history`);
+test("unconfigured generation returns a stable 503 without saving messages or making external requests", async (t) => {
+  const { url, storagePath } = await fixture(t);
+  const created = await post(`${url}/new`, { title: "Test chat" });
+  const chat = await created.json();
+  const before = await readFile(storagePath, "utf8");
+  const outgoing = [require("node:http"), require("node:https")].map((protocol) =>
+    t.mock.method(protocol, "request", () => {
+      throw new Error("Unexpected outgoing HTTP request");
+    })
+  );
+  for (const body of [{ chatId: chat.id, message: "Synthetic question" }, {}]) {
+    const response = await post(`${url}/${chat.id}/message`, body);
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      code: "MODEL_NOT_CONFIGURED",
+      error: "No Model Profile has been configured.",
+    });
+  }
+  const history = await fetch(`${url}/${chat.id}/history`);
   assert.deepEqual(await history.json(), []);
+  assert.equal(await readFile(storagePath, "utf8"), before);
+  for (const request of outgoing) assert.equal(request.mock.calls.length, 0);
+});
+
+test("existing title validation remains available", async (t) => {
+  const { url } = await fixture(t);
+  const response = await post(`${url}/new`, {});
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Chat title is required." });
+});
+
+test("configured origins and preflight are accepted while requests without Origin still work", async (t) => {
+  const { url } = await fixture(t);
+  const response = await fetch(`${url}/list`, { headers: { Origin: "https://allowed.example.test" } });
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://allowed.example.test");
+  const preflight = await fetch(`${url}/new`, {
+    method: "OPTIONS",
+    headers: { Origin: "https://allowed.example.test", "Access-Control-Request-Method": "POST" },
+  });
+  assert.equal(preflight.status, 204);
+  assert.equal(preflight.headers.get("Access-Control-Allow-Origin"), "https://allowed.example.test");
+  const local = await fetch(`${url}/list`);
+  assert.equal(local.status, 200);
+  assert.equal(local.headers.get("Access-Control-Allow-Origin"), null);
+});
+
+test("unconfigured origins are rejected before handlers or storage writes", async (t) => {
+  const { url, storagePath } = await fixture(t);
+  const before = await readFile(storagePath, "utf8");
+  const rejected = await post(`${url}/new`, { title: "Must not be stored" }, { Origin: "https://denied.example.test" });
+  assert.equal(rejected.status, 403);
+  assert.deepEqual(await rejected.json(), { error: "Origin is not allowed." });
+  assert.equal(rejected.headers.get("Access-Control-Allow-Origin"), null);
+  const preflight = await fetch(`${url}/new`, {
+    method: "OPTIONS",
+    headers: { Origin: "https://denied.example.test", "Access-Control-Request-Method": "POST" },
+  });
+  assert.equal(preflight.status, 403);
+  assert.equal(await readFile(storagePath, "utf8"), before);
+});
+
+test("two composed applications have independent storage, origins and node environments", async (t) => {
+  const first = await fixture(t, "https://first.example.test", "development");
+  const second = await fixture(t, "https://second.example.test", "production");
+  assert.equal(first.app.get("env"), "development");
+  assert.equal(second.app.get("env"), "production");
+  const created = await post(`${first.url}/new`, { title: "First app chat" }, { Origin: "https://first.example.test" });
+  assert.equal(created.status, 201);
+  const denied = await fetch(`${second.url}/list`, { headers: { Origin: "https://first.example.test" } });
+  assert.equal(denied.status, 403);
+  const listed = await fetch(`${second.url}/list`, { headers: { Origin: "https://second.example.test" } });
+  assert.equal(listed.status, 200);
+  assert.deepEqual(await listed.json(), []);
+  assert.equal(await readFile(second.storagePath, "utf8"), "[]");
 });

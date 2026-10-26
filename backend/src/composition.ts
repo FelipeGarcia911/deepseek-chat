@@ -1,13 +1,12 @@
 import path from "node:path";
+import { mkdir } from "node:fs/promises";
+import type { AppConfig } from "./config";
 import { createApp } from "./app";
 import ChatService from "./services/ChatService";
-import OllamaService from "./services/OllamaService";
 
-export async function createApplication() {
-  const storagePath = path.join(__dirname, "services", process.env.LOGS_PATH || "../logs/chats.json");
-  const chatService = new ChatService(storagePath);
-  const ollamaService = new OllamaService(process.env.OLLAMA_API_URL || "", process.env.MODEL_NAME || "");
-
+export async function createApplication(config: AppConfig) {
+  await mkdir(path.dirname(config.chatStoragePath), { recursive: true });
+  const chatService = new ChatService(config.chatStoragePath);
   await chatService.initialize();
-  return createApp({ chatService, ollamaService });
+  return createApp({ chatService }, { nodeEnv: config.nodeEnv, corsOrigins: config.corsOrigins });
 }

@@ -2,8 +2,8 @@
 
 This stage prepares the packages and verifies their imports. The
 `src/index.ts` entry points contain `export {}`: no components, types,
-utilities or validation logic have been moved yet. The administration panel
-will be created later.
+utilities or validation logic have been moved yet. The administration surface will be added later within the existing React
+application.
 
 ## Dependencies
 
@@ -97,9 +97,9 @@ files are ignored by Git.
 includes the backend and shared. Dependencies are selected with pnpm's `...`
 filter suffix. Ctrl+C stops the group.
 
-For the future admin application, add its directory to the workspace and
-declare the appropriate workspace:\* dependencies. This stage does not create
-that application.
+The future admin surface lives in the existing React application under
+`/admin/*`; public chat uses `/c/:assistantSlug`. Shared UI components serve
+both surfaces without introducing another workspace application.
 
 References: [pnpm filtering](https://pnpm.io/filtering) and
 [TypeScript modules](https://www.typescriptlang.org/docs/handbook/modules/reference.html).

@@ -8,6 +8,7 @@ dist/
 .idea/
 *.log
 backend/src/logs/
+/backend/data/
 
 # Environment variables
 .env

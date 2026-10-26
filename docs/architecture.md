@@ -1,279 +1,237 @@
 # AI Chat Platform architecture
 
-Date: 2026-10-24. Task: **P0.1** in the [roadmap](roadmap.md).
-The prototype baseline was checked against revision `660e807`; the target
-architecture guides subsequent tasks and has not been implemented yet.
-P0.2 has since separated application construction, composition and process
-startup; see [backend construction and lifecycle](backend-composition.md).
+Date: 2026-10-24. This document reflects the revised P0.3 boundary in the
+[roadmap](roadmap.md). It distinguishes implemented platform behavior from the
+future MVP. [ADR-001](adr/001-use-modular-monolith.md) records the modular
+monolith decision and the single-frontend clarification.
 
-The platform will evolve toward **one API deployed as a modular monolith**,
-with two web clients: public chat and administration. The decision and its
-alternatives are recorded in [ADR-001](adr/001-use-modular-monolith.md).
-
-## Reading the diagrams
-
-The container views follow the abstraction level of
-[C4](https://c4model.com/diagrams/container): applications and data stores,
-which do not necessarily correspond to Docker containers. Arrows represent
-communication, with labels describing its purpose. Modules and packages are
-code boundaries; they do not imply independent processes or deployments.
-
-## 1. Prototype baseline: chat containers
+## 1. Current application
 
 ```mermaid
 flowchart LR
     user["User"]
-    subgraph platform["Current application"]
-        web["React + Redux + MUI frontend<br/>Vite / frontend"]
-        api["Node.js + Express API<br/>backend / one process"]
-        file[("Local JSON file<br/>ChatService + process memory")]
-        logs["Server console<br/>no structured telemetry"]
-        web -->|"HTTP JSON /api/chats"| api
-        api -->|"Initial read and history writes"| file
-        api -->|"Messages and errors"| logs
+    subgraph platform["Current platform"]
+        web["One React application / frontend<br/>existing prototype chat screens"]
+        api["Node.js + Express API / backend<br/>validated platform config and CORS<br/>generation returns 503 MODEL_NOT_CONFIGURED"]
+        data[("JSON chat store<br/>CHAT_STORAGE_PATH")]
+        logs["Server console<br/>no structured telemetry yet"]
+        web -->|"Configured API base / HTTP JSON"| api
+        api -->|"Conversation CRUD only"| data
+        api -->|"Request metadata and errors"| logs
     end
-    ollama["Ollama<br/>model service outside the API process"]
     user -->|"Browser"| web
-    api -->|"HTTP / non-streaming generation"| ollama
 ```
 
+The application can start without a model. Conversation list, creation, history
+and deletion work; generation returns an explicit 503 without saving input,
+fabricating a response or making a provider request. The prototype's direct
+Ollama service and global model configuration are removed.
+
 The monorepo contains `frontend/`, `backend/`, `packages/ui/` and
-`packages/shared/`. Both internal packages are linked, but their entry points
-are empty. Components still live in the frontend; the admin application does
-not exist yet. See the [internal package configuration](internal-packages.md).
+`packages/shared/`. Internal package entry points are still empty. Components
+remain in frontend. The current prototype routes have not yet been replaced
+by the target public/admin routes. See [internal packages](internal-packages.md).
 
-Baseline responsibilities at `660e807` (before P0.2):
+| Boundary                                                                                                | Implemented responsibility                                                                              |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [Frontend config](../frontend/src/config/index.ts) and [HTTP service](../frontend/src/services/Chat.ts) | Validated public API base from Vite; generation failures propagate rather than becoming assistant text. |
+| [Backend config](../backend/src/config.ts)                                                              | Pure immutable platform configuration; no model or dotenv side effects.                                 |
+| [server.ts](../backend/src/server.ts)                                                                   | Executable-only dotenv loading, validation before composition, HTTP startup and shutdown.               |
+| [composition.ts](../backend/src/composition.ts)                                                         | Explicit storage construction and initialization; no provider dependency.                               |
+| [app.ts](../backend/src/app.ts) and [controller](../backend/src/controllers/ChatController.ts)          | Configured CORS, injected storage methods, CRUD and unconfigured generation state.                      |
+| [ChatService.ts](../backend/src/services/ChatService.ts)                                                | In-memory chat state and full JSON-file writes; not yet transactional persistence.                      |
 
-| Code                                                                                                                       | Observed behavior                                                                                               |
-| -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [App.tsx](../frontend/src/App.tsx) and [Chat.ts](../frontend/src/store/reducers/Chat.ts)                                   | Chat routes and Redux state; adds user messages before receiving the response.                                  |
-| [Frontend HTTP service](../frontend/src/services/Chat.ts)                                                                  | Axios uses a hard-coded local URL; some errors become empty lists or response text.                             |
-| [server.ts](../backend/src/server.ts)                                                                                      | Configures Express, unrestricted CORS, routes and error handling; opens a port when imported.                   |
-| [ChatRoutes.ts](../backend/src/routes/ChatRoutes.ts) and [ChatController.ts](../backend/src/controllers/ChatController.ts) | Chat CRUD and message orchestration; imports global service instances.                                          |
-| [ChatService.ts](../backend/src/services/ChatService.ts)                                                                   | Holds chats in memory, starts an asynchronous load and writes JSON; logs write errors without propagating them. |
-| [OllamaService.ts](../backend/src/services/OllamaService.ts)                                                               | Reads configuration during construction, transforms history and calls Ollama directly with `stream: false`.     |
+`CHAT_STORAGE_PATH` resolves from the backend package consistently in source and
+compiled execution. The JSON store still cannot guarantee concurrent-write
+safety or durable error propagation. Authentication, PostgreSQL, RAG, Runs,
+versioning, streaming and structured telemetry are future work.
 
-Current message flow: the browser sends `chatId` and `message`; the controller
-saves the user message, retrieves history, requests an Ollama response and saves
-that response before returning JSON. The route also contains `:chatId`, but
-the controller reads the identifier from the body.
+## 2. Target MVP containers
 
-This does not yet guarantee durability or ordering under concurrency: writes
-replace the full history, and failures can remain hidden. There is no Run
-entity, versioning, RAG, authentication, streaming or tracing. Baseline logging included chat content; P0.2 removes successful message and
-response logging. The target policy requires comprehensive redaction.
-
-## 2. Target MVP architecture
+Container diagrams use the abstraction level of
+[C4](https://c4model.com/diagrams/container): applications and data stores,
+not necessarily Docker containers. Packages and UI surfaces are code boundaries,
+not independent deployment units.
 
 ```mermaid
 flowchart LR
     visitor["Public chat user"]
     operator["Single administrator"]
     subgraph platform["AI Chat Platform / one Workspace"]
-        chat["Chat web client<br/>React frontend"]
-        admin["Administration + Playground web client<br/>future React application"]
-        subgraph api["Node.js API / modular monolith / one backend deployment"]
+        web["ONE React application / frontend<br/>Public surface: /c/:assistantSlug<br/>Administration surface: /admin/* and Playground"]
+        subgraph api["ONE modular Node.js API / one backend deployment"]
             control["Authenticated administrative HTTP<br/>control plane"]
-            runtime["Public HTTP and streaming<br/>runtime"]
-            modules["Use cases and domain modules<br/>in-process calls"]
-            adapters["Adapters<br/>persistence, models, files and telemetry"]
+            runtime["Public conversation HTTP and streaming<br/>runtime"]
+            modules["Domain modules and use cases<br/>in-process calls"]
+            adapters["Persistence, provider, storage and telemetry adapters"]
             control --> modules
             runtime --> modules
             modules --> adapters
         end
-        db[("PostgreSQL + pgvector<br/>product data, chunks and embeddings")]
+        db[("PostgreSQL + pgvector<br/>platform data, messages, Runs and evidence")]
         sources[("Source document storage<br/>technology to be selected")]
-        chat -->|"HTTPS / conversations and events"| runtime
-        admin -->|"HTTPS / configuration, testing and inspection"| control
+        web -->|"Administration and authenticated previews"| control
+        web -->|"Public conversations"| runtime
         adapters -->|"SQL / transactions and vector search"| db
         adapters -->|"Documents and ingestion artifacts"| sources
     end
-    models["Model providers<br/>Ollama + one hosted provider to be selected"]
-    secrets["Server configuration and secrets<br/>mechanism to be selected"]
+    models["Future model providers<br/>Ollama + one hosted provider to be selected"]
+    secrets["Server-side secrets<br/>referenced by Model Profiles and versions"]
     telemetry["Telemetry destination<br/>traces, metrics and logs / to be selected"]
-    visitor --> chat
-    operator --> admin
-    adapters -->|"HTTPS or local network / generation and embeddings"| models
-    secrets -->|"Credentials and references / server only"| adapters
-    adapters -.->|"Correlated signals with sensitive data redacted"| telemetry
+    visitor --> web
+    operator --> web
+    adapters -->|"Generation and embedding capabilities"| models
+    secrets -->|"Credential resolution / never sent to browser"| adapters
+    adapters -.->|"Correlated and redacted signals"| telemetry
 ```
 
-The control plane **configures and operates** the product; the runtime
-**serves conversations**. They will have separate routes and access policies
-while sharing the backend process and the necessary use cases. Playground
-uses the authenticated surface and reuses the conversation engine. Public
-chat never accesses PostgreSQL, private documents, credentials or provider
-endpoints directly.
+The MVP has **one React application with two surfaces**, not two web
+applications or deployments. UI reuse through `@chat-app/ui` supports shared
+components inside that application. The `/admin/*` route group will require
+administrator authentication; `/c/:assistantSlug` is the stable public route.
+Those screens and authentication are not introduced by P0.3.
 
-PostgreSQL is the authoritative store for entities and execution records;
-pgvector adds vector search inside that database rather than introducing
-another service. Source files must be retained to rebuild indexes. Storage
-technology, administrator identity, the hosted provider and the telemetry
-destination will be selected in their respective tasks; this diagram does
-not select AWS services.
+Control plane means configuring and operating the product; runtime means
+serving conversations. They have distinct HTTP/access policies inside the same
+backend. Playground reuses conversation execution through the authenticated
+surface. Neither surface talks directly to private storage or model providers.
 
-Development, Staging and Production aliases belong to each Assistant's domain.
-They do not require three physical platform deployments for the MVP.
+PostgreSQL is authoritative for product records. pgvector provides vector
+search in the same database. Source documents remain available to rebuild
+indexes. Telemetry observes execution but is not the authoritative Run store.
+Storage technology, identity flow, the hosted provider, telemetry destination
+and cloud services remain decisions for their assigned roadmap tasks.
 
-## 3. Module boundaries and dependencies
+Development, Staging and Production are Assistant deployment aliases. They do
+not require three physical platform deployments for the MVP.
 
-These are proposed logical boundaries for organizing the backend, not folders
-or services created by this task:
+## 3. Configuration ownership and module boundaries
 
-| Module                       | Responsibility and owned data                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Identity and Workspace       | Administrator, session and automatically created Workspace; access boundaries.                         |
-| Assistants and configuration | Assistant, mutable draft, presentation and instructions.                                               |
-| Releases                     | Immutable versions, environment aliases and audited promotion or rollback records.                     |
-| Models                       | Model Profiles, generation and embedding contracts, capabilities and provider adapters.                |
-| Knowledge                    | One knowledge base per Assistant; documents, ingestion, chunks, index versions and evidence retrieval. |
-| Conversations and runtime    | Conversation, Message and Run; context, budgets, streaming, cancellation and execution policies.       |
-| Inspection and evaluation    | Authorized conversation/Run queries and reproducible evaluation; does not rewrite other modules' data. |
+| Owner                                        | Settings and data                                                                                                |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Platform environment                         | Node environment, HTTP port, allowed CORS origins and the temporary chat-storage path.                           |
+| Persisted Model Profiles, later              | Provider connections, model identity, capabilities and credential references.                                    |
+| Assistant Drafts / immutable Versions, later | Instructions, generation parameters, context and guardrail policy, knowledge references and public presentation. |
 
-Dependency rules:
+Provider credentials stay server-side. Assistant Versions snapshot effective
+output-affecting configuration and reference credentials rather than copying
+secret values. Global platform environment variables do not configure chatbot
+instructions, models, generation parameters or embeddings.
 
-- HTTP translates inputs and outputs; use cases coordinate domain rules.
-  Persistence and providers connect through explicit interfaces at the
-  application composition boundary.
-- Each module owns its writes. Other modules use its public interface rather
-  than accessing its tables directly or importing implementation details.
-  A shared database allows transactions across coordinated operations.
-- `@chat-app/ui` will contain React presentation reusable by chat and admin;
-  it will not access storage, secrets or backend services directly.
-- `@chat-app/shared` will contain portable utilities and agreed contracts;
-  it will not hold repositories, provider SDKs or persistence entities.
-  The contract strategy will be decided in P1.3.
-- Applications consume packages; packages do not import applications. Sharing
-  TypeScript does not replace validation of data received at runtime.
-- Telemetry observes operations. Product Run records do not depend on the
-  availability of the telemetry exporter.
+Proposed backend modules:
 
-## 4. Principal target flows
+| Module                       | Responsibility and owned data                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------- |
+| Identity and Workspace       | Administrator, session, automatic Workspace and access boundaries.                              |
+| Assistants and configuration | Assistant, mutable draft, presentation and instructions.                                        |
+| Releases                     | Immutable versions, environment aliases and audited promotion/rollback records.                 |
+| Models                       | Model Profiles, capability contracts and future provider adapters; interfaces start at P3.1.    |
+| Knowledge                    | One base per Assistant; documents, ingestion, chunks, versioned indexes and retrieval evidence. |
+| Conversations and runtime    | Conversation, Message and Run; context, budgets, generation, streaming and cancellation.        |
+| Inspection and evaluation    | Authorized queries and reproducible evaluation without writing other modules' data.             |
+
+HTTP translates inputs and outputs; use cases coordinate domain rules. Each
+module owns its writes and exposes public interfaces. Sharing PostgreSQL allows
+coordinated transactions, not arbitrary cross-module table writes.
+`@chat-app/shared` is for portable utilities and agreed contracts, not provider
+SDKs or persistence entities. Packages do not import applications.
+
+## 4. Principal future flows
 
 ### Configure, publish and promote
 
-The administrator edits the draft and tests a configuration snapshot in
-Playground, with conversations identified as tests. Publishing creates an
-immutable Assistant Version containing effective configuration, policies and
-a knowledge version reference; it never includes secret values. Promotion
-atomically changes the environment alias and creates a Deployment record with
-the actor, timestamp and previous target. Rollback creates another Deployment
-pointing to a compatible published version.
+An administrator edits a Draft and tests its configuration in Playground.
+Publishing creates an immutable Assistant Version with effective configuration,
+policies and a knowledge/index version reference. Promotion atomically changes
+an environment alias and records the actor, time and previous destination.
+Rollback creates another Deployment pointing to a compatible published version.
 
-`/c/:assistantSlug` is the stable public URL: creating a conversation resolves
-Production and pins `assistantVersionId`. A subsequent promotion affects new
-conversations; existing ones retain their version. Previews of other versions
-or environments require authentication. An archived, missing or unpublished
-Assistant has an explicit public state.
+Creating a conversation through `/c/:assistantSlug` resolves Production and
+pins `assistantVersionId`. Later promotions affect new conversations; existing
+ones retain their version. Previews of other environments or versions require
+authentication. Archived, missing and undeployed Assistants have explicit states.
 
 ### From a public message to a persisted Run
+
+This sequence is a **future** runtime, not the temporary P0.3 generation endpoint:
 
 ```mermaid
 sequenceDiagram
     actor User as User
-    participant Web as Chat web client
+    participant Web as Single React app / public surface
     participant API as Runtime API
     participant Core as Use cases
     participant DB as PostgreSQL + pgvector
-    participant Models as Model gateway
+    participant Models as Future model gateway
     participant OTel as Telemetry
     User->>Web: Send a message
     Web->>API: Message and conversation or public Assistant
-    API->>Core: Validation, limits and public identity
+    API->>Core: Validate input and apply runtime limits
     Core->>DB: Create conversation pinning Production, or load pinned version
     Core->>DB: Short transaction: user message + started Run
     Core->>Models: Query embedding when RAG applies
     Models-->>Core: Query vector
-    Core->>DB: Retrieve chunks from the pinned knowledge version
-    DB-->>Core: Evidence, identifiers, locations and scores
-    Core->>Core: Instructions + history + bounded evidence + policies
+    Core->>DB: Retrieve evidence from the pinned knowledge version
+    DB-->>Core: Chunk identifiers, locations and scores
+    Core->>Core: Assemble versioned instructions, history, evidence and policy
     Core->>Models: Generate with effective configuration and cancellation
-    Models-->>Core: Output events and available usage
+    Models-->>Core: Output events and reported usage
     Core-->>API: Incremental text
     API-->>Web: Generation events
     Core->>DB: Short transaction: response, citations and completed Run
     Core-->>API: Persisted final result
     API-->>Web: Completion event
-    Core-->>OTel: Durations, status and correlated identifiers
+    Core-->>OTel: Timing, status and correlated identifiers
 ```
 
-The diagram shows the successful path. Network calls to the model do not hold
-an SQL transaction open. Each Run records the effective version, provider and
-model, retrieved evidence, timing, status and reported usage when available.
-Inspection joins these records by identifier without storing hidden reasoning.
-
-Validation failures, missing deployments and access denial are rejected before
-generation. Failure, timeout and cancellation are explicit Run outcomes rather
-than fabricated Assistant answers. Disconnection must cancel upstream
-generation. Partial-output policy and recovery of interrupted Runs will be
-defined when persistence and streaming are implemented. Persistence failure
-must not be presented as a successfully saved completion.
+Model network calls do not keep SQL transactions open. Runs record effective
+version, provider/model identity, evidence, timing, status and available usage,
+without hidden reasoning. Failure, timeout and cancellation are explicit
+terminal outcomes. Persistence failure must not appear as a saved completion.
+Partial-output and interrupted-Run recovery policies belong to persistence and
+streaming implementation.
 
 ### From documents to versioned knowledge
 
-An authenticated upload validates type and size and assigns a storage location
-independent of the supplied filename. Knowledge records ownership, hash and
-state, preserves the source document and performs traceable parsing, chunking
-and embedding generation. Chunks retain document and source-location references;
-embeddings record the model and dimensions. The index can be rebuilt, and
-failures are visible. Planned initial formats are PDF, Markdown and plain text
-(P6.1).
+Authenticated upload validates file type and size, assigns safe storage
+locations and records ownership and content hashes. Knowledge preserves source
+documents, parses and chunks content, and stores traceable embeddings with
+model and dimension metadata. Initial formats are PDF, Markdown and plain text.
+Failures are visible and indexes can be rebuilt. Publishing pins knowledge;
+later document changes affect the draft, not published versions. Retention
+must preserve artifacts required by active versions. Ingestion design does not
+imply introducing a broker or another service.
 
-Publishing pins an index version. Document changes affect the draft without
-changing the evidence available to published versions. Source and index
-retention must preserve active versions and explicitly report the unavailability
-of deleted artifacts. Recoverable ingestion execution will be designed in
-P6.1; this task introduces neither a broker nor another service.
+## 5. MVP scope and non-goals
 
-## 5. MVP scope and boundaries
+Included: one administrator and one automatic Workspace, multiple Assistants,
+drafts and immutable versions, environment aliases, stable public URLs and
+authenticated previews; Ollama plus one ADR-selected hosted provider; one
+knowledge base per Assistant; RAG with citations; basic guardrails; Run and
+conversation inspection; evaluations, telemetry, automated tests, CI/CD and one
+deployed environment. None of the future provider functionality is active in
+P0.3.
 
-The MVP includes one administrator and an automatic Workspace, multiple
-Assistants, drafts, immutable versions, Development/Staging/Production aliases,
-a stable public URL and authenticated previews. It includes Ollama and one
-hosted provider selected through an ADR, one knowledge base per Assistant,
-RAG with citations, basic guardrails and inspection of conversations, evidence,
-latency, usage and failures. Evaluations, telemetry, tests, CI/CD and one
-deployed environment are part of the outcome, beyond the chat screens.
+Deferred: functional multitenancy, billing, quotas, complex roles, external
+WhatsApp/Slack channels, tools, autonomous agents, human approvals, A/B traffic
+and advanced experimentation, multiple bases per Assistant, multi-agent
+orchestration, Kubernetes, microservices, Kafka and event sourcing.
+`workspaceId` prepares ownership without implementing multitenancy.
 
-Deferred capabilities are functional multitenancy, billing, quotas, complex
-roles, WhatsApp/Slack channels, tools, autonomous agents, human approvals,
-A/B traffic splitting and advanced experimentation, multiple knowledge bases
-per Assistant, multi-agent orchestration, Kubernetes, microservices, Kafka
-and event sourcing. Representing `workspaceId` prepares future ownership;
-it does not implement multitenancy.
+Public runtime limits, server-side credentials, configured CORS, retention and
+privacy-aware telemetry are target boundaries. Messages and retrieved documents
+are untrusted data. Telemetry excludes sensitive content and secrets by default.
+Authentication and comprehensive security policies remain in their roadmap tasks.
 
-Target public boundaries include administrative authentication, runtime rate
-and payload limits, server-only credentials and environment-specific CORS.
-Documents and messages are untrusted inputs. Telemetry excludes personal
-content, retrieved text, access tokens and secrets by default; retention and
-visibility require explicit policies. Details and tests will be added in the
-configuration and authentication tasks and phase 7.
+## References and next steps
 
-## 6. Next steps and open decisions
+[Configuration](configuration.md) documents P0.3 startup and the temporary
+unconfigured-model state. [Composition](backend-composition.md) explains
+construction and lifecycle. P0.4–P0.6 complete the trustworthy baseline before
+domain work; P1.3/P1.4 decide contracts and validation, P2.1 data access, P3.1
+the model interface, P3.7 the hosted provider, P4.1 authentication, P6.1 ingestion
+and P8.2 cloud architecture.
 
-P0.1 produced this architecture and ADR-001. P0.2 now separates Express
-construction from startup and makes dependency composition explicit;
-P0.3 will validate
-configuration; P0.4–P0.6 will add tests and complete quality gates before domain
-work. The roadmap's task order and phase exit gates remain in effect.
-
-Decisions remain in their respective ADRs or tasks: HTTP contracts (P1.3),
-PostgreSQL data access (P2.1), hosted provider (P3.7), authentication flow
-(P4.1), ingestion and index versioning (P6.1), telemetry destination (P7),
-and AWS services/cost (P8.2). Admin creation and UI extraction will be
-coordinated with phase 4.
-
-Official references consulted: [C4 containers](https://c4model.com/diagrams/container),
-[ADRs](https://adr.github.io/), [pgvector](https://github.com/pgvector/pgvector)
-and [OpenTelemetry signals](https://opentelemetry.io/docs/concepts/signals/).
-
-## P0.1 verification
-
-- Current and target diagrams show frontend, API, storage, model and telemetry
-  boundaries.
-- Current behavior is checked against linked source files; proposals are marked
-  as future work, and internal packages are represented as code dependencies.
-- Publishing, conversation/Run and ingestion flows include version invariants.
-- Included scope and deferred capabilities match the roadmap.
-- [ADR-001](adr/001-use-modular-monolith.md) records the decision, alternatives,
-  consequences and conditions for reconsidering it.
+Official references: [C4 containers](https://c4model.com/diagrams/container),
+[ADRs](https://adr.github.io/), [pgvector](https://github.com/pgvector/pgvector),
+[OpenTelemetry signals](https://opentelemetry.io/docs/concepts/signals/).

@@ -1,63 +1,41 @@
-# 🚀 AI Chatbot - Installation Guide
+# AI Chat Platform
 
-This guide provides step-by-step instructions to set up and run the AI chatbot powered by **Ollama**.
+A TypeScript workspace evolving from a chat prototype into a platform for
+configuring, publishing and inspecting versioned RAG Assistants. See the
+[roadmap](docs/roadmap.md), [architecture](docs/architecture.md) and
+[ADR-001](docs/adr/001-use-modular-monolith.md).
 
-## 📌 Prerequisites
+## Current behavior
 
-Before starting, make sure you have the following installed:
+The backend starts without a configured model. Conversation list, creation,
+history and deletion work with temporary JSON persistence. Generation is
+intentionally unavailable until Model Profiles and model-gateway contracts
+are implemented. Sending a message returns:
 
-- **Node.js 26.12.1** (run `nvm install` and `nvm use` from the repository root)
-- **pnpm 12.14.0** (install with `npm install --global pnpm@12.14.0`)
-- **Docker** (optional, for running Ollama in a container)
-- **Git** (to clone the repository)
-
----
-
-## 🧠 1. Install Ollama
-
-Ollama is required to run the AI model locally. Install it using the following command:
-
-```sh
-curl -fsSL https://ollama.ai/install.sh | sh
+```json
+{
+  "code": "MODEL_NOT_CONFIGURED",
+  "error": "No Model Profile has been configured."
+}
 ```
 
-For **Windows**, download and install Ollama from [here](https://ollama.ai/download).
+The response status is **503**. The API does not save the submitted message,
+fabricate an assistant answer or call a provider. Ollama is not required to
+install, run or test this stage. The frontend propagates generation failure;
+its existing optimistic user bubble is client-only and is not stored by the API.
 
----
+The MVP target is **one React application** with public chat at
+`/c/:assistantSlug` and administration at `/admin/*`. These are surfaces in the
+same application, not separate apps or deployments. P0.3 does not introduce
+those screens or administrator authentication; existing prototype routes remain.
 
-## 📥 2. Download the Model
+## Prerequisites and setup
 
-Once Ollama is installed, download the AI model by running:
+- Node.js 26.12.1; use `nvm` to select the repository version.
+- pnpm 12.14.0.
+- Git.
 
-```sh
-ollama pull deepseek-r1:1.5b
-```
-
-This command fetches the **DeepSeek AI model**, which will be used by the chatbot.
-
----
-
-## ▶️ 3. Start Ollama
-
-To start the Ollama service, simply run:
-
-```sh
-ollama run deepseek-r1:1.5b
-```
-
-To run Ollama in the background:
-
-```sh
-nohup ollama serve > ollama.log 2>&1 &
-```
-
-This ensures the service stays active even after closing the terminal.
-
----
-
-## 💻 4. Install the workspace
-
-Run all setup commands from the repository root:
+From the repository root:
 
 ```sh
 nvm install
@@ -68,97 +46,88 @@ cp -n backend/.env.example backend/.env
 cp -n frontend/.env.example frontend/.env
 ```
 
-Keep existing `.env` files if you have already configured them. The backend
-requires `OLLAMA_API_URL` and `MODEL_NAME`; the frontend uses `VITE_API_BASE_URL`.
+The copy commands preserve existing files. If you already have env files,
+update them to the current examples: the old global model and prototype
+storage variables are not supported. No prototype data is migrated automatically.
 
-## 🔧 5. Run the applications
+The backend requires these four **platform** settings:
+
+```dotenv
+NODE_ENV=development
+PORT=4000
+CORS_ORIGINS=http://localhost:5173
+CHAT_STORAGE_PATH=./data/chats.json
+```
+
+Ports must be integers in 1–65535. Origins are normalized HTTP(S) origins,
+separated by commas; wildcards and URL paths are rejected. Relative storage
+paths resolve from `backend/`, consistently in development and compiled runs.
+The parent directory is created when needed; `backend/data/` is ignored by Git.
+
+The frontend requires a **public** API base, including `/api` but excluding
+`/chats`:
+
+```dotenv
+VITE_API_BASE_URL=http://localhost:4000/api
+```
+
+A root-relative value such as `/api` is also supported when deployment routes
+that prefix to the API. No development proxy is configured automatically.
+Restart after env changes. Production frontend values are embedded during build;
+changing them requires rebuilding. Never put secrets in `VITE_*` settings.
+See [configuration](docs/configuration.md) for validation and precedence.
+
+## Run and verify
 
 ```sh
 pnpm dev
 ```
 
-This starts the frontend at **http://localhost:5173** and the backend at
-**http://localhost:4000**. Stop both with Ctrl+C. To run them separately:
+This builds the internal packages, then starts their watchers and both the
+frontend and backend. With the examples, open `http://localhost:5173`; the API
+list endpoint is `http://localhost:4000/api/chats/list`. Ctrl+C stops the group.
+If Vite selects another port, explicitly add that origin to `CORS_ORIGINS` and
+restart the backend. Requests with unknown Origin headers receive 403;
+requests without Origin remain available to local tools.
 
-```sh
-pnpm dev:frontend
-pnpm dev:backend
-```
+| Command                          | Purpose                                                        |
+| -------------------------------- | -------------------------------------------------------------- |
+| `pnpm dev:frontend`              | Run the React application and its library watchers.            |
+| `pnpm dev:backend`               | Run the API and shared-library watcher.                        |
+| `pnpm build:packages`            | Compile internal libraries.                                    |
+| `pnpm typecheck`                 | Check all workspace packages.                                  |
+| `pnpm lint`                      | Run current frontend lint rules; backend lint arrives in P0.5. |
+| `pnpm test`                      | Run backend and frontend configuration/HTTP regression tests.  |
+| `pnpm build`                     | Build libraries, the backend and the React application.        |
+| `pnpm --filter backend start`    | Run the compiled API after building.                           |
+| `pnpm --filter frontend preview` | Preview the already-built frontend.                            |
 
-Each package script runs in its own directory, so `.env` paths remain local
-to the application. Filtered commands also run in each package directory. Build the libraries first
-and include their watchers with the dependency selector `...`:
+Tests need no real model or provider credentials. They use temporary storage
+and local ports. The current Vite bundle-size warning is documented and remains
+outside P0.3. JSON persistence is not safe for concurrent writers; PostgreSQL
+work is planned in phase 2.
 
-```sh
-pnpm build:packages
-pnpm --filter "backend..." --parallel dev
-```
+## Configuration ownership and workspace
 
-## Workspace commands
+Platform environment settings configure deployment. Future Model Profiles
+will own provider connections and credential references; Assistant Drafts and
+Versions will own instructions, generation parameters and chatbot behavior.
+Credentials stay server-side and are referenced rather than copied into
+Assistant Versions. No ModelProvider interface, adapter or profile persistence
+is introduced in this stage.
 
-| Command                                  | Purpose                                                                          |
-| ---------------------------------------- | -------------------------------------------------------------------------------- |
-| `pnpm install --frozen-lockfile`         | Install both applications using the root lockfile                                |
-| `pnpm typecheck`                         | Check TypeScript in both applications                                            |
-| `pnpm test`                              | Run backend regression and lifecycle tests without Ollama                        |
-| `pnpm lint`                              | Run the frontend ESLint rules (backend has no ESLint configuration)              |
-| `pnpm build`                             | Compile the backend into backend/dist and bundle the frontend into frontend/dist |
-| `pnpm --filter backend start`            | Run the compiled backend after building                                          |
-| `pnpm --filter frontend preview`         | Preview the frontend production build locally                                    |
-| `pnpm --filter frontend add <package>`   | Add a runtime dependency to the frontend                                         |
-| `pnpm --filter backend add -D <package>` | Add a development dependency to the backend                                      |
+`frontend/` and `backend/` consume the private `packages/ui` and
+`packages/shared` libraries with `workspace:*`. UI will support reusable
+components across the two surfaces of the same React app. Commit the root
+`pnpm-lock.yaml` when changing dependencies.
 
-The root package is private and coordinates `backend/`, `frontend/` and the
-internal libraries in `packages/*`. See [internal packages](docs/internal-packages.md)
-for their dependencies, module formats and development workflow.
-Commit the root `pnpm-lock.yaml` when changing dependencies.
-See [the architecture](docs/architecture.md) for current and target system boundaries.
+- [Internal packages](docs/internal-packages.md)
+- [Backend composition and lifecycle](docs/backend-composition.md)
+- [Platform configuration](docs/configuration.md)
+- [Architecture and MVP boundaries](docs/architecture.md)
+- [Execution roadmap](docs/roadmap.md)
 
----
+## License
 
-## 🎯 Final Steps
-
-1. Ensure that **Ollama is running** before starting the backend.
-2. Open **http://localhost:5173** in your browser to access the chatbot.
-
-If you encounter any issues, check the logs:
-
-```sh
-tail -f backend/logs/server.log  # Check backend logs
-tail -f ollama.log               # Check Ollama logs
-```
-
----
-
-## 🛠 Troubleshooting
-
-### **Ollama is not responding**
-
-- Run `ollama list` to check if the model is installed.
-- Restart Ollama: `ollama serve`.
-
-### **Backend is not responding**
-
-- Ensure Ollama is running before starting the backend.
-- Check if the API is reachable: `curl http://localhost:4000/api/chats/list`.
-
-### **Frontend is not loading**
-
-- Ensure the backend is running.
-- Restart the frontend: `pnpm dev`.
-
----
-
-## 📝 License
-
-This project is licensed under the **MIT License**.
-
----
-
-🚀 **Enjoy your AI chatbot!**
-
-## Architecture and roadmap
-
-See [the architecture](docs/architecture.md), [ADR-001](docs/adr/001-use-modular-monolith.md) and [the roadmap](docs/roadmap.md) for system boundaries, decisions and the implementation sequence.
-
-See [backend construction and lifecycle](docs/backend-composition.md) for dependency injection, startup/shutdown behavior and the focused P0.2 regression tests.
+The project package metadata currently declares MIT; adding the repository
+license file is tracked in P0.6.

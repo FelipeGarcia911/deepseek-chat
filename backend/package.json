@@ -14,11 +14,10 @@
     "test": "pnpm build && node --test test/*.test.cjs"
   },
   "dependencies": {
-    "axios": "^1.7.9",
+    "@chat-app/shared": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "@chat-app/shared": "workspace:*"
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -75,7 +75,7 @@ Prefer one coherent commit per task. A task may use two commits when a preparato
 - No secrets or personal message content are committed or exposed in logs.
 - Public contracts and configuration changes are documented.
 - Existing quality gates remain green.
-- The commit and pull request explain *why* the change exists, not only what changed.
+- The commit and pull request explain _why_ the change exists, not only what changed.
 
 ## 3. Current baseline
 
@@ -134,20 +134,49 @@ Still incomplete or only partial:
 
 **Suggested commit:** `refactor(api): separate app composition from server startup`
 
-### P0.3 — Add typed configuration and startup validation
+### P0.3 — Introduce validated platform configuration and remove global model configuration
 
-**General description:** Centralize environment configuration and validate it before the application starts.
+**General description:** Validate the deployed application's platform settings before startup, remove the prototype's global Ollama composition, and keep the platform usable before Model Profiles exist. Backward compatibility with the prototype is not required.
+
+**Configuration ownership:**
+
+- Platform environment variables configure the deployed application: node environment, HTTP port, allowed CORS origins and current chat storage path.
+- Persisted Model Profiles will configure provider connections and credential references.
+- Assistant Drafts and immutable Versions will configure instructions, generation parameters, knowledge and chatbot behavior.
+- Provider credentials remain server-side and are referenced rather than copied into Assistant Versions.
+- The MVP has one React application with public chat (`/c/:assistantSlug`) and administration (`/admin/*`) surfaces. UI boundaries do not require separate applications or deployments.
+
+**Implementation requirements:**
+
+- Provide a pure `loadConfig(env): AppConfig` function with no dotenv, filesystem, listener or process-environment side effects.
+- Require `NODE_ENV`, `PORT`, `CORS_ORIGINS` and `CHAT_STORAGE_PATH`; do not silently replace missing or invalid values with defaults.
+- Convert `PORT` to an integer in 1–65535. Normalize and deduplicate comma-separated HTTP(S) CORS origins, rejecting malformed values and wildcards.
+- Resolve relative storage paths from the backend package directory, identically in source and compiled runs; support absolute paths and return immutable typed configuration, including its origin list.
+- Load dotenv only at executable startup, read `process.env` once through `loadConfig`, and pass only the relevant validated settings into composition and HTTP setup.
+- Rename the prototype storage setting to `CHAT_STORAGE_PATH`; remove global model/provider variables and generation parameters from platform configuration and examples.
+- Remove direct Ollama service construction, its controller dependency and the unused service. Do not introduce a fallback, legacy adapter, local default model or the future ModelProvider interface.
+- Keep the generation endpoint available but return `503` with `{ code: "MODEL_NOT_CONFIGURED", error: "No Model Profile has been configured." }`. Do not persist the submitted message, fabricate a response or make an external request.
+- Continue supporting conversation list, creation, history and deletion without a model.
+- Replace wildcard CORS with configured origins. Reject unknown origins before handlers, support appropriate requests without an Origin header, and handle preflight.
+- Make `VITE_API_BASE_URL` the frontend's only API-location source. Accept HTTP(S) or supported root-relative base URLs, normalize trailing slashes, type the Vite variable and fail clearly on malformed configuration.
+- Keep secrets out of `VITE_*`; validate Vite configuration before development startup and production builds as well as at the frontend configuration boundary.
 
 **Acceptance criteria:**
 
-- Missing or invalid required values fail with an actionable startup error.
-- Frontend consumes `VITE_API_BASE_URL`; no backend URL is hard-coded.
-- Configuration is accessed through one typed module per application.
-- Example environment files contain no inline values that parse incorrectly.
+- Missing, blank or invalid platform settings fail before listening with actionable errors that do not print supplied values.
+- Backend services, controllers and routes do not read `process.env`; importing app, composition, controllers or configuration does not load dotenv, read files or open ports.
+- The backend starts without a configured model and generation returns the documented 503 without changing history or attempting a provider request.
+- CORS follows the validated allowlist, including accepted, rejected, preflight and no-Origin requests.
+- Two applications can be composed with independent storage, CORS and node-environment settings.
+- Tests cover valid configuration, required fields, invalid and out-of-range ports, valid/invalid origins, predictable storage paths, input immutability, startup and frontend API configuration.
+- Root tests, existing lint, typecheck and build pass.
+- Both environment examples have clean values and separate comments. README, configuration, composition and architecture documentation describe the new boundary, single React application and temporary unconfigured-model state.
 
-**Technical justification and learning:** Configuration errors should fail early rather than appear as runtime behavior. Learn configuration boundaries, schema validation and build-time versus runtime variables.
+**Out of scope:** PostgreSQL, Model Profile persistence, provider adapters, admin configuration screens, the final ModelProvider interface (P3.1), streaming, final error taxonomy (P1.4), authentication and compatibility with the old global Ollama environment settings.
 
-**Suggested commit:** `feat(config): validate runtime configuration`
+**Technical justification and learning:** Platform deployment settings and versioned chatbot settings have different owners and lifecycles. Learn pure configuration boundaries, startup validation, dependency injection, CORS, immutable configuration and build-time versus runtime variables without turning a prototype provider into a global product assumption.
+
+**Suggested commit:** `feat(config): validate platform configuration`
 
 ### P0.4 — Establish automated test foundations
 
@@ -157,7 +186,7 @@ Still incomplete or only partial:
 
 - A unit test, API integration test and UI component test run from root scripts.
 - Tests cover at least one successful chat flow and one dependency failure.
-- A fake model response is used; tests do not require Ollama.
+- Tests use isolated dependencies and do not require Ollama. Generation remains explicitly unavailable until model-gateway work; fake provider contracts belong to P3.1.
 - Test commands produce deterministic exit codes.
 
 **Technical justification and learning:** Later refactors affect storage, model calls and streaming simultaneously. Tests create the safety net needed to learn by changing real code. Learn the test pyramid and test doubles.
@@ -1031,23 +1060,23 @@ These items begin only after the MVP release gate passes and evidence identifies
 
 The exact task order remains mandatory, but closely related tasks can share a pull request when review remains clear:
 
-| Pull request | Tasks | Demonstrable result |
-|---|---|---|
-| PR 1 | P0.1–P0.3 | Testable architecture and validated configuration |
-| PR 2 | P0.4–P0.6 | Automated quality baseline and CI |
-| PR 3 | P1.1–P1.5 | Stable product language and API boundaries |
-| PR 4 | P2.1–P2.3 | PostgreSQL and release-domain persistence |
-| PR 5 | P2.4–P2.6 | Durable conversations and complete JSON cutover |
-| PR 6 | P3.1–P3.3 | Provider-independent deterministic model execution |
-| PR 7 | P3.4–P3.7 | Streaming, resilience and second provider |
-| PR 8 | P4.1–P4.5 | Usable Assistant control plane and Playground |
-| PR 9 | P5.1–P5.5 | Version, promotion, rollback and stable public URL |
-| PR 10 | P6.1–P6.4 | Secure ingestion and vector index |
-| PR 11 | P6.5–P6.7 | Versioned grounded answers with citations |
-| PR 12 | P7.1–P7.3 | Operational telemetry and inspection UI |
-| PR 13 | P7.4–P7.7 | Evaluation, guardrails and security boundary |
-| PR 14 | P8.1–P8.4 | Reproducible cloud delivery |
-| PR 15 | P8.5–P8.7 | Performance evidence, demo and case study |
+| Pull request | Tasks     | Demonstrable result                                |
+| ------------ | --------- | -------------------------------------------------- |
+| PR 1         | P0.1–P0.3 | Testable architecture and validated configuration  |
+| PR 2         | P0.4–P0.6 | Automated quality baseline and CI                  |
+| PR 3         | P1.1–P1.5 | Stable product language and API boundaries         |
+| PR 4         | P2.1–P2.3 | PostgreSQL and release-domain persistence          |
+| PR 5         | P2.4–P2.6 | Durable conversations and complete JSON cutover    |
+| PR 6         | P3.1–P3.3 | Provider-independent deterministic model execution |
+| PR 7         | P3.4–P3.7 | Streaming, resilience and second provider          |
+| PR 8         | P4.1–P4.5 | Usable Assistant control plane and Playground      |
+| PR 9         | P5.1–P5.5 | Version, promotion, rollback and stable public URL |
+| PR 10        | P6.1–P6.4 | Secure ingestion and vector index                  |
+| PR 11        | P6.5–P6.7 | Versioned grounded answers with citations          |
+| PR 12        | P7.1–P7.3 | Operational telemetry and inspection UI            |
+| PR 13        | P7.4–P7.7 | Evaluation, guardrails and security boundary       |
+| PR 14        | P8.1–P8.4 | Reproducible cloud delivery                        |
+| PR 15        | P8.5–P8.7 | Performance evidence, demo and case study          |
 
 Do not force a large task into one commit merely to match this table. Preserve reviewability and working intermediate states.
 
@@ -1057,10 +1086,10 @@ Do not force a large task into one commit merely to match this table. Preserve r
 
 - [Repository](https://github.com/FelipeGarcia911/deepseek-chat)
 - [Current root workspace](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/package.json)
-- [Migration and validation notes](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/docs/migration-plan.md)
+- [Migration and validation notes at the reviewed revision](https://github.com/FelipeGarcia911/deepseek-chat/blob/7dc3dc6380ad62683e8ca5ab22186f647e9fb493/docs/migration-plan.md)
 - [Current Express server](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/backend/src/server.ts)
 - [Current Chat controller](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/backend/src/controllers/ChatController.ts)
-- [Current Ollama service](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/backend/src/services/OllamaService.ts)
+- [Prototype Ollama service at the reviewed revision](https://github.com/FelipeGarcia911/deepseek-chat/blob/7dc3dc6380ad62683e8ca5ab22186f647e9fb493/backend/src/services/OllamaService.ts)
 - [Current file persistence](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/backend/src/services/ChatService.ts)
 - [Current frontend API service](https://github.com/FelipeGarcia911/deepseek-chat/blob/main/frontend/src/services/Chat.ts)
 

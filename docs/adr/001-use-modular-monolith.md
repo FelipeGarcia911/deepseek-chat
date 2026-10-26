@@ -22,7 +22,7 @@ how many processes are deployed.
 - Keep clear ownership of data and invariants, with explicit dependencies.
 - Use local transactions for publishing, promotion and Run persistence.
 - Limit infrastructure and operating costs while validating the product.
-- Support separate public chat and administration clients sharing the runtime.
+- Support public chat and administration surfaces in one React application sharing the API runtime.
 
 ## Considered alternatives
 
@@ -37,8 +37,10 @@ how many processes are deployed.
 Build **one modular API deployed as a unit**, initially with one Node.js/Express
 process and PostgreSQL with pgvector. Separate administrative and runtime HTTP
 surfaces through appropriate authentication and policies within that same API.
-Chat and admin web clients may be distributed separately; they do not turn
-the backend into microservices.
+The MVP has one React application with public chat at `/c/:assistantSlug` and
+administration at `/admin/*`. These are UI surfaces in the same frontend, not
+separate applications or deployments. This frontend boundary was clarified
+as part of the revised P0.3 requirements.
 
 Organize code around identity/Workspace, Assistants/configuration, releases,
 models, knowledge, conversations/runtime and inspection/evaluation, as described
@@ -60,7 +62,8 @@ technology choices will be resolved in their respective tasks.
 
 We can build and test complete flows with fewer operational components,
 atomic promotions and traceability within the same backend. Interfaces allow
-incremental replacement of Ollama, JSON and other adapters.
+incremental evolution of JSON persistence and future provider adapters. P0.3
+removes the direct prototype Ollama composition; model interfaces begin at P3.1.
 
 The process, resources and deployment are shared: a runtime failure or expensive
 ingestion can affect administration. We must limit concurrency, measure load

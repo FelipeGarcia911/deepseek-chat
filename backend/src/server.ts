@@ -1,10 +1,15 @@
 import dotenv from "dotenv";
+import { ConfigurationError, loadConfig } from "./config";
 import { createApplication } from "./composition";
 
 async function main() {
-  dotenv.config();
-  const app = await createApplication();
-  const port = process.env.PORT || 4000;
+  const environmentFile = dotenv.config();
+  if (environmentFile.error && (environmentFile.error as NodeJS.ErrnoException).code !== "ENOENT") {
+    throw new ConfigurationError([".env: could not be read; check the file location and permissions."]);
+  }
+  const config = loadConfig(process.env);
+  const app = await createApplication(config);
+  const port = config.port;
   const server = app.listen(port, () => {
     const address = server.address();
     const listeningPort = typeof address === "object" && address ? address.port : port;
