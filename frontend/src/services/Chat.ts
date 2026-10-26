@@ -1,7 +1,15 @@
 import axios from "axios";
-import { ChatHistory, ChatList, ChatSummary, SendMessageResponse, type LegacyMessage } from "@chat-app/shared";
+import {
+  ChatHistory,
+  ChatList,
+  ChatSummary,
+  DeleteChatResponse,
+  SendMessageResponse,
+  type LegacyMessage,
+} from "@chat-app/shared";
 
 import { config } from "../config";
+import { send } from "./ApiError";
 
 export type Message = LegacyMessage;
 
@@ -17,26 +25,27 @@ class ChatService {
   }
 
   async fetchChats(): Promise<Chat[]> {
-    const response = await axios.get(`${this.apiUrl}/list`);
+    const response = await send(axios.get(`${this.apiUrl}/list`));
     return ChatList.parse(response.data).map((chat) => ({ ...chat, messages: [] }));
   }
 
   async createChat(title: string): Promise<Chat> {
-    const response = await axios.post(`${this.apiUrl}/new`, { title });
+    const response = await send(axios.post(`${this.apiUrl}/new`, { title }));
     return { ...ChatSummary.parse(response.data), messages: [] };
   }
 
   async deleteChat(chatId: string): Promise<void> {
-    await axios.delete(`${this.apiUrl}/${chatId}`);
+    const response = await send(axios.delete(`${this.apiUrl}/${chatId}`));
+    DeleteChatResponse.parse(response.data);
   }
 
   async getChatHistory(chatId: string): Promise<Message[]> {
-    const response = await axios.get(`${this.apiUrl}/${chatId}/history`);
+    const response = await send(axios.get(`${this.apiUrl}/${chatId}/history`));
     return ChatHistory.parse(response.data);
   }
 
   async sendMessage(chatId: string, message: string): Promise<string> {
-    const response = await axios.post(`${this.apiUrl}/${chatId}/message`, { message });
+    const response = await send(axios.post(`${this.apiUrl}/${chatId}/message`, { message }));
     return SendMessageResponse.parse(response.data).response;
   }
 }

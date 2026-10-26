@@ -12,7 +12,7 @@ it("should request each conversation operation with the configured API base", as
     .spyOn(axios, "post")
     .mockResolvedValueOnce({ data: summary })
     .mockResolvedValueOnce({ data: { response: "Synthetic response" } });
-  const remove = vi.spyOn(axios, "delete").mockResolvedValue({ data: {} });
+  const remove = vi.spyOn(axios, "delete").mockResolvedValue({ data: { message: "Chat deleted successfully." } });
   expect(await service.fetchChats()).toEqual([{ ...summary, messages: [] }]);
   expect(await service.getChatHistory("1")).toEqual([{ sender: "user", text: "Stored question" }]);
   expect(await service.createChat(summary.title)).toEqual({ ...summary, messages: [] });
@@ -43,8 +43,10 @@ it("should reject responses that do not match the shared contract", async () => 
     .mockResolvedValueOnce({ data: [{ id: "not-numeric", title: "Synthetic chat" }] })
     .mockResolvedValueOnce({ data: [{ sender: "system", text: "Unexpected" }] });
   vi.spyOn(axios, "post").mockResolvedValue({ data: { title: "Missing identifier" } });
+  vi.spyOn(axios, "delete").mockResolvedValue({ data: {} });
   await expect(service.fetchChats()).rejects.toThrow(/legacy numeric chat identifier/);
   await expect(service.getChatHistory("1")).rejects.toThrow();
   await expect(service.createChat("Synthetic chat")).rejects.toThrow();
   await expect(service.sendMessage("1", "Synthetic question")).rejects.toThrow();
+  await expect(service.deleteChat("1")).rejects.toThrow();
 });

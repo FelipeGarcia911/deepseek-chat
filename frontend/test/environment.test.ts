@@ -46,7 +46,14 @@ test("should use the configured origin and API path prefix", async (t) => {
     if (req.method === "POST") {
       res.statusCode = 503;
       res.end(
-        JSON.stringify({ status: 503, code: "MODEL_NOT_CONFIGURED", detail: "No Model Profile has been configured." })
+        JSON.stringify({
+          type: "about:blank",
+          title: "Service Unavailable",
+          status: 503,
+          code: "MODEL_NOT_CONFIGURED",
+          detail: "No Model Profile has been configured.",
+          requestId: "synthetic-request-id",
+        })
       );
       return;
     }
@@ -69,9 +76,18 @@ test("should use the configured origin and API path prefix", async (t) => {
   assert.deepEqual(await service.fetchChats(), [{ id: "1730000000000", title: "Test chat", messages: [] }]);
   assert.deepEqual(paths, ["/platform/api/chats/list"]);
   await assert.rejects(service.sendMessage("1730000000000", "Synthetic question"), (error) => {
-    assert.ok(axios.isAxiosError(error));
-    assert.equal(error.response?.status, 503);
-    assert.equal(error.response?.data.code, "MODEL_NOT_CONFIGURED");
+    assert.ok(error instanceof Error);
+    assert.equal(error.name, "ApiError");
+    assert.equal(error.message, "No Model Profile has been configured.");
+    const { problem, cause } = error as Error & {
+      problem: { status: number; code: string; requestId: string };
+      cause: unknown;
+    };
+    assert.deepEqual(
+      [problem.status, problem.code, problem.requestId],
+      [503, "MODEL_NOT_CONFIGURED", "synthetic-request-id"]
+    );
+    assert.ok(axios.isAxiosError(cause));
     return true;
   });
   assert.deepEqual(paths, ["/platform/api/chats/list", "/platform/api/chats/1730000000000/message"]);
