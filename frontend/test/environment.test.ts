@@ -45,10 +45,12 @@ test("should use the configured origin and API path prefix", async (t) => {
     res.setHeader("Content-Type", "application/json");
     if (req.method === "POST") {
       res.statusCode = 503;
-      res.end(JSON.stringify({ code: "MODEL_NOT_CONFIGURED", error: "No Model Profile has been configured." }));
+      res.end(
+        JSON.stringify({ status: 503, code: "MODEL_NOT_CONFIGURED", detail: "No Model Profile has been configured." })
+      );
       return;
     }
-    res.end(JSON.stringify([{ id: "configured-api", title: "Test chat", messages: [] }]));
+    res.end(JSON.stringify([{ id: "1730000000000", title: "Test chat" }]));
   });
   t.onTestFinished(
     () => new Promise<void>((resolve, reject) => api.close((error) => (error ? reject(error) : resolve())))
@@ -64,15 +66,15 @@ test("should use the configured origin and API path prefix", async (t) => {
   });
   t.onTestFinished(() => vite.close());
   const { default: service } = await vite.ssrLoadModule("/src/services/Chat.ts");
-  assert.deepEqual(await service.fetchChats(), [{ id: "configured-api", title: "Test chat", messages: [] }]);
+  assert.deepEqual(await service.fetchChats(), [{ id: "1730000000000", title: "Test chat", messages: [] }]);
   assert.deepEqual(paths, ["/platform/api/chats/list"]);
-  await assert.rejects(service.sendMessage("test-chat", "Synthetic question"), (error) => {
+  await assert.rejects(service.sendMessage("1730000000000", "Synthetic question"), (error) => {
     assert.ok(axios.isAxiosError(error));
     assert.equal(error.response?.status, 503);
     assert.equal(error.response?.data.code, "MODEL_NOT_CONFIGURED");
     return true;
   });
-  assert.deepEqual(paths, ["/platform/api/chats/list", "/platform/api/chats/test-chat/message"]);
+  assert.deepEqual(paths, ["/platform/api/chats/list", "/platform/api/chats/1730000000000/message"]);
 });
 
 test("should bundle the selected public API URL rather than the previous hard-coded URL", async (t) => {

@@ -79,13 +79,18 @@ deletion remain available. Message generation currently returns:
 
 ```http
 HTTP/1.1 503 Service Unavailable
-Content-Type: application/json
+Content-Type: application/problem+json
+X-Request-Id: <request identifier>
 ```
 
 ```json
 {
+  "type": "about:blank",
+  "title": "Service Unavailable",
+  "status": 503,
   "code": "MODEL_NOT_CONFIGURED",
-  "error": "No Model Profile has been configured."
+  "detail": "No Model Profile has been configured.",
+  "requestId": "<same value as the X-Request-Id header>"
 }
 ```
 

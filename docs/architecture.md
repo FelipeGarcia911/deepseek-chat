@@ -28,7 +28,8 @@ fabricating a response or making a provider request. The prototype's direct
 Ollama service and global model configuration are removed.
 
 The monorepo contains `frontend/`, `backend/`, `packages/ui/` and
-`packages/shared/`. Internal package entry points are still empty. Components
+`packages/shared/`. Shared holds the legacy chat wire contracts and error catalog
+([ADR-002](adr/002-share-runtime-validated-api-contracts.md)); UI is still empty. Components
 remain in frontend. The current prototype routes have not yet been replaced
 by the target public/admin routes. See [internal packages](internal-packages.md).
 
@@ -39,11 +40,12 @@ by the target public/admin routes. See [internal packages](internal-packages.md)
 | [server.ts](../backend/src/server.ts)                                                                   | Executable-only dotenv loading, validation before composition, HTTP startup and shutdown.               |
 | [composition.ts](../backend/src/composition.ts)                                                         | Explicit storage construction and initialization; no provider dependency.                               |
 | [app.ts](../backend/src/app.ts) and [controller](../backend/src/controllers/ChatController.ts)          | Configured CORS, injected storage methods, CRUD and unconfigured generation state.                      |
-| [ChatService.ts](../backend/src/services/ChatService.ts)                                                | In-memory chat state and full JSON-file writes; not yet transactional persistence.                      |
+| [http.ts](../backend/src/http.ts)                                                                       | Request IDs, schema validation, typed-error mapping and RFC 9457 problem responses.                     |
+| [ChatService.ts](../backend/src/services/ChatService.ts)                                                | In-memory chat state and full JSON-file writes; failed writes leave memory unchanged and return 503.    |
 
 `CHAT_STORAGE_PATH` resolves from the backend package consistently in source and
 compiled execution. The JSON store still cannot guarantee concurrent-write
-safety or durable error propagation. Authentication, PostgreSQL, RAG, Runs,
+safety. Authentication, PostgreSQL, RAG, Runs,
 versioning, streaming and structured telemetry are future work.
 
 ## 2. Target MVP containers

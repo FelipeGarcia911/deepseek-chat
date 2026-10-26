@@ -14,12 +14,18 @@ are implemented. Sending a message returns:
 
 ```json
 {
+  "type": "about:blank",
+  "title": "Service Unavailable",
+  "status": 503,
   "code": "MODEL_NOT_CONFIGURED",
-  "error": "No Model Profile has been configured."
+  "detail": "No Model Profile has been configured.",
+  "requestId": "<same value as the X-Request-Id header>"
 }
 ```
 
-The response status is **503**. The API does not save the submitted message,
+The response status is **503** with `Content-Type: application/problem+json`.
+Every API error uses this [problem details envelope](docs/adr/002-share-runtime-validated-api-contracts.md#error-envelope);
+clients branch on `code`. The API does not save the submitted message,
 fabricate an assistant answer or call a provider. Ollama is not required to
 install, run or test this stage. The frontend propagates generation failure;
 its existing optimistic user bubble is client-only and is not stored by the API.

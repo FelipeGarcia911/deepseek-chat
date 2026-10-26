@@ -1,9 +1,10 @@
 # Internal libraries
 
-This stage prepares the packages and verifies their imports. The
-`src/index.ts` entry points contain `export {}`: no components, types,
-utilities or validation logic have been moved yet. The administration surface will be added later within the existing React
-application.
+`@chat-app/shared` holds the wire contracts selected in
+[ADR-002](adr/002-share-runtime-validated-api-contracts.md): Zod schemas for the
+legacy chat endpoints, the error-code catalog and the problem-details schema.
+`@chat-app/ui` still exports nothing. The administration surface will be added
+later within the existing React application.
 
 ## Dependencies
 
@@ -18,12 +19,14 @@ React and React DOM as peerDependencies: consuming applications must provide
 compatible versions. This avoids treating React as a private copy owned by
 the library. React types and TypeScript are development tools.
 
-`packages/shared` will contain code shared by browser and server. Its TypeScript
+`packages/shared` contains code shared by browser and server. Its TypeScript
 configuration includes neither DOM nor Node global types: using `window`,
-`document` or `process` produces a type error. It also does not depend on React,
-Express or any application. This directs the package toward portable functions,
-data contracts and validation. Credentials and server-only logic must remain
-in the backend.
+`document` or `process` produces a type error. Its only runtime dependency is
+Zod; it does not depend on React, Express or any application. It holds wire
+contracts, not domain entities or persistence models. Credentials and
+server-only logic must remain in the backend. `skipLibCheck` is enabled because
+Zod's declarations reference the `URL` global; the package's own source is still
+checked without DOM or Node types.
 
 ## Linking
 
@@ -37,20 +40,10 @@ Applications import by package name rather than paths such as
 index.ts, and its manifest defines the entry point through exports. Code added
 in the next stage must be exported from that entry point.
 
-The current imports are side-effect imports:
-
-```ts
-// Frontend
-import "@chat-app/ui";
-import "@chat-app/shared";
-
-// Backend
-import "@chat-app/shared";
-```
-
-They verify resolution and integration without inventing components or business
-functions. Since the entry points are empty, they do not change application
-behavior. Only the frontend consumes UI; the backend consumes shared.
+The backend imports shared schemas to validate requests and the error catalog to
+build problem responses. The frontend imports the same schemas to parse
+responses. The frontend keeps a side-effect `import "@chat-app/ui"` until that
+package gains components. Only the frontend consumes UI.
 
 ## Compilation and formats
 

@@ -80,8 +80,8 @@ pnpm --filter frontend format:check
 ```
 
 Root commands also cover the internal libraries and their compiler script.
-Their entry points currently export no behavior; future implementations must
-add tests and meet the same coverage policy.
+`@chat-app/shared` has its own Vitest suite and the same per-file coverage
+thresholds; `@chat-app/ui` exports no behavior yet and must add both when it does.
 
 ## Runtime and type compatibility
 

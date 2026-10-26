@@ -1,15 +1,11 @@
 import axios from "axios";
+import { ChatHistory, ChatList, ChatSummary, SendMessageResponse, type LegacyMessage } from "@chat-app/shared";
 
 import { config } from "../config";
 
-export interface Message {
-  text: string;
-  sender: "user" | "bot";
-}
+export type Message = LegacyMessage;
 
-export interface Chat {
-  id: string;
-  title: string;
+export interface Chat extends ChatSummary {
   messages: Message[];
 }
 
@@ -21,46 +17,27 @@ class ChatService {
   }
 
   async fetchChats(): Promise<Chat[]> {
-    try {
-      const response = await axios.get(`${this.apiUrl}/list`);
-      return response.data;
-    } catch (error) {
-      console.error("❌ Failed to fetch chats:", error);
-      return [];
-    }
+    const response = await axios.get(`${this.apiUrl}/list`);
+    return ChatList.parse(response.data).map((chat) => ({ ...chat, messages: [] }));
   }
 
-  async createChat(title: string): Promise<Chat | null> {
-    try {
-      const response = await axios.post(`${this.apiUrl}/new`, { title });
-      return response.data;
-    } catch (error) {
-      console.error("❌ Failed to create chat:", error);
-      return null;
-    }
+  async createChat(title: string): Promise<Chat> {
+    const response = await axios.post(`${this.apiUrl}/new`, { title });
+    return { ...ChatSummary.parse(response.data), messages: [] };
   }
 
   async deleteChat(chatId: string): Promise<void> {
-    try {
-      await axios.delete(`${this.apiUrl}/${chatId}`);
-    } catch (error) {
-      console.error(`❌ Failed to delete chat ${chatId}:`, error);
-    }
+    await axios.delete(`${this.apiUrl}/${chatId}`);
   }
 
   async getChatHistory(chatId: string): Promise<Message[]> {
-    try {
-      const response = await axios.get(`${this.apiUrl}/${chatId}/history`);
-      return response.data;
-    } catch (error) {
-      console.error(`❌ Failed to fetch history for chat ${chatId}:`, error);
-      return [];
-    }
+    const response = await axios.get(`${this.apiUrl}/${chatId}/history`);
+    return ChatHistory.parse(response.data);
   }
 
   async sendMessage(chatId: string, message: string): Promise<string> {
-    const response = await axios.post(`${this.apiUrl}/${chatId}/message`, { message, chatId });
-    return response.data.response;
+    const response = await axios.post(`${this.apiUrl}/${chatId}/message`, { message });
+    return SendMessageResponse.parse(response.data).response;
   }
 }
 

@@ -1,9 +1,6 @@
 import fs from "fs/promises";
-
-interface Message {
-  text: string;
-  sender: "user" | "bot";
-}
+import type { LegacyMessage as Message } from "@chat-app/shared";
+import { AppError } from "../errors";
 
 interface Chat {
   id: string;
@@ -30,40 +27,45 @@ class ChatService {
     }
   }
 
-  private async saveChatsToFile(): Promise<void> {
+  // Writes before replacing memory so a failed write leaves no unsaved state behind.
+  private async commit(chats: Chat[]): Promise<void> {
     try {
-      await fs.writeFile(this.storagePath, JSON.stringify(this.chats, null, 2));
+      await fs.writeFile(this.storagePath, JSON.stringify(chats, null, 2));
     } catch (error) {
-      console.error("❌ Failed to save chats to file:", error);
+      throw new AppError("DEPENDENCY_UNAVAILABLE", "Chat storage is unavailable.", error);
     }
+    this.chats = chats;
   }
 
   getChats(): { id: string; title: string }[] {
     return this.chats.map(({ id, title }) => ({ id, title }));
   }
 
-  getChatHistory(chatId: string): Message[] {
-    return this.chats.find((chat) => chat.id === chatId)?.messages || [];
+  getChatHistory(chatId: string): Message[] | undefined {
+    return this.chats.find((chat) => chat.id === chatId)?.messages;
   }
 
   async createChat(title: string): Promise<{ id: string; title: string }> {
     const newChat: Chat = { id: Date.now().toString(), title, messages: [] };
-    this.chats.push(newChat);
-    await this.saveChatsToFile();
+    await this.commit([...this.chats, newChat]);
     return { id: newChat.id, title: newChat.title };
   }
 
   async saveMessage(chatId: string, sender: "user" | "bot", text: string): Promise<void> {
-    const chat = this.chats.find((c) => c.id === chatId);
-    if (!chat) return;
+    if (!this.chats.some((c) => c.id === chatId)) return;
 
-    chat.messages.push({ text, sender });
-    await this.saveChatsToFile();
+    await this.commit(
+      this.chats.map((chat) =>
+        chat.id === chatId ? { ...chat, messages: [...chat.messages, { text, sender }] } : chat
+      )
+    );
   }
 
-  async deleteChat(chatId: string): Promise<void> {
-    this.chats = this.chats.filter((chat) => chat.id !== chatId);
-    await this.saveChatsToFile();
+  async deleteChat(chatId: string): Promise<boolean> {
+    const remaining = this.chats.filter((chat) => chat.id !== chatId);
+    if (remaining.length === this.chats.length) return false;
+    await this.commit(remaining);
+    return true;
   }
 }
 

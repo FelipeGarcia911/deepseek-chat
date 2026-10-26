@@ -50,7 +50,7 @@ describe("conversation creation", () => {
   });
 
   it("should keep the form usable and create no chat when the service fails", async () => {
-    const createChat = vi.spyOn(ChatService, "createChat").mockResolvedValue(null);
+    const createChat = vi.spyOn(ChatService, "createChat").mockRejectedValue(new Error("Synthetic create failure"));
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     const user = userEvent.setup();
     const store = renderHome();

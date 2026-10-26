@@ -1,5 +1,4 @@
 import "@chat-app/ui";
-import "@chat-app/shared";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "./store";

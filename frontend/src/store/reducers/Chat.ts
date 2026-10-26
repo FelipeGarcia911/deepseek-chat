@@ -11,9 +11,7 @@ export const fetchChatHistory = createAsyncThunk("chat/fetchChatHistory", async 
 });
 
 export const createChat = createAsyncThunk("chat/createChat", async (title: string) => {
-  const chat = await ChatService.createChat(title);
-  if (!chat) throw new Error("No se pudo crear el chat");
-  return chat;
+  return await ChatService.createChat(title);
 });
 
 export const deleteChat = createAsyncThunk("chat/deleteChat", async (chatId: string) => {
@@ -74,7 +72,7 @@ const chatSlice = createSlice({
         state.chats = state.chats.filter((chat) => chat.id !== action.payload);
       })
       .addCase(deleteChat.rejected, (_, action) => {
-        console.error("❌ Error deleting chat:", action.payload);
+        console.error("❌ Error deleting chat:", action.error);
       })
 
       // FetchChatHistory

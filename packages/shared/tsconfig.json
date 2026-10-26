@@ -10,6 +10,7 @@
     "sourceMap": true,
     "noEmitOnError": true,
     "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
     "outDir": "dist/esm",
     "lib": ["ES2022"],
     "types": []

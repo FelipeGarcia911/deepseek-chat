@@ -21,10 +21,10 @@ sessions apply them automatically.
 
 Run `pnpm test:coverage` to enforce the thresholds and generate text, JSON
 summary and HTML reports under each application's ignored `coverage/`
-directory. The command runs both applications even if one fails. Ordinary
-`pnpm test` runs behavior checks without collecting coverage; its success
-alone does not satisfy the coverage requirement. Future production code in
-internal libraries must meet the same rule when those libraries gain behavior.
+directory. The command runs both applications and `@chat-app/shared` even if
+one fails. Ordinary `pnpm test` runs behavior checks without collecting
+coverage; its success alone does not satisfy the coverage requirement.
+`@chat-app/ui` must meet the same rule when it gains behavior.
 
 Run the complete suite from the repository root:
 
@@ -70,7 +70,8 @@ See the official [Vitest guide](https://vitest.dev/guide/),
 | ------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Unit                      | Node                                          | Backend/frontend configuration validation, accumulated errors, normalization, immutability and rejected-generation state. No network, files or child processes.                                             |
 | HTTP integration          | Node, Supertest, real Express and ChatService | Conversation creation/list/history/deletion, CORS, input validation, generation's 503 without history changes and isolation of two applications. JSON files live in temporary directories.                  |
-| Dependency failure        | Node, Supertest and a failing service stub    | A service failure produces the controlled 500 contract and the application remains usable.                                                                                                                  |
+| Contract                  | Node and the shared Zod schemas               | Legacy identifier, title and message limits, strict request bodies, response shapes and tolerance of unknown problem codes.                                                                                 |
+| Dependency failure        | Node, Supertest and a failing service stub    | An untyped service failure produces `INTERNAL_ERROR` without internal details; a typed error keeps its stable code and status; the application remains usable.                                              |
 | Component                 | jsdom and real React components               | Button/Enter submission, empty input, Shift+Enter, message display, assistant Markdown, loading, conversation creation/navigation and recovery after creation failure.                                      |
 | Process/build integration | Node, child processes and local HTTP fixtures | Imports without application side effects, executable env-file loading, process precedence, startup errors, port conflicts, SIGINT/SIGTERM draining, frontend service URL selection and production bundling. |
 
@@ -105,9 +106,12 @@ contracts and provider doubles belong to P3.1.
 Do not replace router, controller and storage together in the CRUD test:
 that would stop checking whether those pieces actually integrate. Keep the
 real file-backed service for successful HTTP flows, and inject a failing
-service only when testing error handling. The failure tests exercise a
-service throwing, not a physical disk fault; the prototype storage service
-currently catches disk errors internally.
+service only when testing error handling. The stub tests exercise a
+service throwing. A separate HTTP test removes the temporary storage directory
+to produce a real write failure and checks the `DEPENDENCY_UNAVAILABLE` problem.
+
+Supertest starts a server when a request is created, so tests that loop over
+several requests store functions that create them, not the requests themselves.
 
 ## Reading a test
 

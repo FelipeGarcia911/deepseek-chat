@@ -53,7 +53,7 @@ it("should update conversations through successful service operations", async ()
 it("should release loading and preserve state when service operations reject", async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(ChatService, "fetchChats").mockRejectedValue(new Error("Synthetic list failure"));
-  vi.spyOn(ChatService, "createChat").mockResolvedValue(null);
+  vi.spyOn(ChatService, "createChat").mockRejectedValue(new Error("Synthetic create failure"));
   vi.spyOn(ChatService, "deleteChat").mockRejectedValue(new Error("Synthetic delete failure"));
   const store = configureStore({ reducer: { chat: reducer } });
   expect(fetchChats.rejected.match(await store.dispatch(fetchChats()))).toBe(true);

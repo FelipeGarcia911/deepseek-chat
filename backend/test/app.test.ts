@@ -33,7 +33,17 @@ test("should support list, create, history and delete without a configured model
   await api.get(`${base}/list`).expect(200, []);
 });
 
-test("should return a stable 503 without saving messages or making external requests", async (t) => {
+function assertProblem(response: request.Response, status: number, code: string) {
+  assert.equal(response.status, status);
+  assert.match(response.headers["content-type"], /^application\/problem\+json/);
+  assert.equal(response.body.code, code);
+  assert.equal(response.body.status, status);
+  assert.equal(response.body.type, "about:blank");
+  assert.equal(response.body.requestId, response.headers["x-request-id"]);
+  assert.match(response.body.requestId, /^[0-9a-f-]{36}$/);
+}
+
+test("should return a stable 503 problem without saving messages or making external requests", async (t) => {
   const { api, storagePath } = await fixture(t);
   const { body: chat } = await api.post(`${base}/new`).send({ title: "Test chat" }).expect(201);
   const before = await readFile(storagePath, "utf8");
@@ -42,12 +52,9 @@ test("should return a stable 503 without saving messages or making external requ
     throw new Error("Unexpected outgoing HTTPS request");
   });
   const httpSpy = vi.spyOn(http, "request");
-  for (const body of [{ chatId: chat.id, message: "Synthetic question" }, {}]) {
-    await api.post(`${base}/${chat.id}/message`).send(body).expect(503, {
-      code: "MODEL_NOT_CONFIGURED",
-      error: "No Model Profile has been configured.",
-    });
-  }
+  const response = await api.post(`${base}/${chat.id}/message`).send({ message: "Synthetic question" });
+  assertProblem(response, 503, "MODEL_NOT_CONFIGURED");
+  assert.equal(response.body.detail, "No Model Profile has been configured.");
   await api.get(`${base}/${chat.id}/history`).expect(200, []);
   assert.equal(await readFile(storagePath, "utf8"), before);
   assert.equal(fetchSpy.mock.calls.length, 0);
@@ -58,9 +65,57 @@ test("should return a stable 503 without saving messages or making external requ
   }
 });
 
-test("should preserve existing title validation", async (t) => {
+test("should reject invalid titles, identifiers and messages with field-level validation problems", async (t) => {
+  const { api, storagePath } = await fixture(t);
+  const { body: chat } = await api.post(`${base}/new`).send({ title: "Test chat" }).expect(201);
+  const before = await readFile(storagePath, "utf8");
+  const cases = [
+    { call: () => api.post(`${base}/new`).send({}), path: "body.title" },
+    { call: () => api.post(`${base}/new`).send({ title: "   " }), path: "body.title" },
+    { call: () => api.post(`${base}/new`).send({ title: "x".repeat(121) }), path: "body.title" },
+    { call: () => api.post(`${base}/new`).send({ title: "Valid", owner: "someone" }), path: "body" },
+    { call: () => api.get(`${base}/not-a-number/history`), path: "params.chatId" },
+    { call: () => api.delete(`${base}/1a`), path: "params.chatId" },
+    { call: () => api.post(`${base}/${chat.id}/message`).send({ message: " " }), path: "body.message" },
+    { call: () => api.post(`${base}/${chat.id}/message`).send({ message: "x".repeat(4001) }), path: "body.message" },
+    { call: () => api.post(`${base}/${chat.id}/message`).send({ chatId: chat.id, message: "Hi" }), path: "body" },
+  ];
+  for (const { call, path: field } of cases) {
+    const response = await call();
+    assertProblem(response, 400, "VALIDATION_FAILED");
+    assert.ok(
+      response.body.errors.some((error: { path: string }) => error.path === field),
+      JSON.stringify(response.body)
+    );
+  }
+  assert.equal(await readFile(storagePath, "utf8"), before);
+});
+
+test("should trim a valid title before storing it", async (t) => {
   const { api } = await fixture(t);
-  await api.post(`${base}/new`).send({}).expect(400, { error: "Chat title is required." });
+  const { body } = await api.post(`${base}/new`).send({ title: "  Spaced title  " }).expect(201);
+  assert.equal(body.title, "Spaced title");
+});
+
+test("should return not-found problems for unknown chats and routes", async (t) => {
+  const { api } = await fixture(t);
+  for (const call of [
+    () => api.get(`${base}/1/history`),
+    () => api.delete(`${base}/1`),
+    () => api.post(`${base}/1/message`).send({ message: "Synthetic question" }),
+    () => api.get("/api/unknown"),
+  ]) {
+    assertProblem(await call(), 404, "NOT_FOUND");
+  }
+});
+
+test("should report storage failures as an unavailable dependency without keeping the unsaved chat", async (t) => {
+  const { api, storagePath } = await fixture(t);
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  await rm(path.dirname(storagePath), { recursive: true });
+  assertProblem(await api.post(`${base}/new`).send({ title: "Unsaved chat" }), 503, "DEPENDENCY_UNAVAILABLE");
+  await api.get(`${base}/list`).expect(200, []);
+  assert.equal(vi.mocked(console.error).mock.calls.length, 1);
 });
 
 test("should accept configured origins, preflight and requests without Origin", async (t) => {
@@ -86,8 +141,8 @@ test("should reject unconfigured origins before handlers or storage writes", asy
   const rejected = await api
     .post(`${base}/new`)
     .set("Origin", "https://denied.example.test")
-    .send({ title: "Must not be stored" })
-    .expect(403, { error: "Origin is not allowed." });
+    .send({ title: "Must not be stored" });
+  assertProblem(rejected, 403, "ORIGIN_NOT_ALLOWED");
   assert.equal(rejected.headers["access-control-allow-origin"], undefined);
   await api
     .options(`${base}/new`)
@@ -112,12 +167,10 @@ test("should compose two applications with independent storage, origins and node
   assert.equal(await readFile(second.storagePath, "utf8"), "[]");
 });
 
-test("should return a controlled error for malformed JSON", async (t) => {
+test("should return client problems for malformed and oversized JSON bodies", async (t) => {
   const { api } = await fixture(t);
-  vi.spyOn(console, "error").mockImplementation(() => {});
-  await api
-    .post(`${base}/new`)
-    .set("Content-Type", "application/json")
-    .send('{"title":')
-    .expect(500, { error: "Internal server error" });
+  const malformed = await api.post(`${base}/new`).set("Content-Type", "application/json").send('{"title":');
+  assertProblem(malformed, 400, "VALIDATION_FAILED");
+  const oversized = await api.post(`${base}/new`).send({ title: "x".repeat(40_000) });
+  assertProblem(oversized, 413, "PAYLOAD_TOO_LARGE");
 });
