@@ -183,7 +183,7 @@ sequenceDiagram
     Models-->>Core: Output events and reported usage
     Core-->>API: Incremental text
     API-->>Web: Generation events
-    Core->>DB: Short transaction: response, citations and completed Run
+    Core->>DB: Atomic commit: linked response, citations and succeeded Run
     Core-->>API: Persisted final result
     API-->>Web: Completion event
     Core-->>OTel: Timing, status and correlated identifiers
@@ -193,8 +193,11 @@ Model network calls do not keep SQL transactions open. Runs record effective
 version, provider/model identity, evidence, timing, status and available usage,
 without hidden reasoning. Failure, timeout and cancellation are explicit
 terminal outcomes. Persistence failure must not appear as a saved completion.
-Partial-output and interrupted-Run recovery policies belong to persistence and
-streaming implementation.
+[Lifecycle rules](lifecycle.md) require each committed assistant Message to link
+to exactly one succeeded Run, with at most one response per successful Run and
+none for failed, cancelled or expired Runs. Provisional streamed output is not a
+confirmed Message. Persistence and streaming work must enforce these rules and
+the documented race/recovery policies.
 
 ### From documents to versioned knowledge
 

@@ -153,6 +153,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Automated test foundations](docs/testing.md)
 - [Repository and test rules](AGENTS.md)
 - [Domain glossary and ownership](docs/domain.md)
+- [Lifecycle states and invariants](docs/lifecycle.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 

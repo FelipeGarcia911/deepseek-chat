@@ -3,8 +3,8 @@
 **Status:** P1.1 target product model, October 26, 2026. This document defines
 language and invariants for subsequent implementation; it does not introduce
 entities, database tables, routes or provider interfaces into the prototype.
-See the [architecture](architecture.md), [configuration ownership](configuration.md)
-and [execution roadmap](roadmap.md).
+See the [architecture](architecture.md), [configuration ownership](configuration.md),
+[state transitions](lifecycle.md) and [execution roadmap](roadmap.md).
 
 ## Vocabulary and scope
 
@@ -25,9 +25,9 @@ applications, queues or tenant-management features.
 
 ## Glossary and lifecycle intent
 
-Lifecycle descriptions here identify what can change. P1.2 will define precise
-states, transitions, admission rules and failure recovery; these paragraphs are
-not state-machine enums.
+Lifecycle descriptions here identify what can change. [P1.2 lifecycle rules](lifecycle.md)
+define states, transitions, admission guards and failure recovery; these glossary
+paragraphs are not state-machine enums.
 
 ### Workspace
 
@@ -133,8 +133,9 @@ The collection is mutable: documents can be uploaded, processed, replaced or
 removed, producing derived indexes and visible ingestion outcomes. A published
 Version pins a specific ready knowledge/index artifact, not the collection's
 mutable latest state. Subsequent ingestion changes the Draft's available
-knowledge, not that Version. Referenced artifacts must be retained. Document,
-chunk and index lifecycles and storage details are P6.1 work.
+knowledge, not that Version. Referenced artifacts must be retained. [P1.2](lifecycle.md#documents-and-knowledge-ingestion)
+outlines Document transitions; P6.1 refines chunk/index lifecycles, storage,
+deduplication and retention.
 
 ### Conversation
 
@@ -165,6 +166,11 @@ completion transaction. Validation and rejected requests need not create a
 Message. Future retention/redaction policies are explicit operations, not edits
 that silently change execution history.
 
+Every persisted assistant response references exactly one successful producing
+Run. A successful Run confirms at most one such Message; nonterminal, failed,
+cancelled and expired Runs confirm none. The association and success are committed
+atomically; see [response provenance](lifecycle.md#response-provenance-and-cardinality).
+
 Instructions belong to configuration, not a separate user-visible “system”
 Message. Streamed fragments are execution events, not automatically committed
 assistant Messages. A model/dependency failure is not assistant text. The current
@@ -179,13 +185,15 @@ status, usage when available, and safe error metadata. It is not a synonym for
 an HTTP request, telemetry trace or individual provider HTTP attempt.
 
 A Run is created at acceptance, updated while executing and finalized with a
-success, failure, cancellation or timeout outcome. Identity, ownership, triggering
-Message and target remain fixed; terminal results are not rewritten by retries.
+`succeeded`, `failed`, `cancelled` or `expired` (deadline/timeout) outcome.
+Identity, ownership, triggering Message and target remain fixed; terminal results are not rewritten by retries.
 An explicit retry creates a new Run. Provider-internal retry accounting and
 client request idempotency are later runtime/contract decisions.
 
-A Run produces at most one committed assistant answer in this MVP, and can
-produce none. One user Message can be associated with multiple Runs through
+A succeeded Run produces at most one committed assistant answer in this MVP.
+Every such answer belongs to exactly that Run. A failed, cancelled or expired
+Run produces no committed assistant answer; streamed partial output is not a
+confirmed Message. One user Message can be associated with multiple Runs through
 explicit retries. Preserve these relationships when inspecting failures or
 partial output. PostgreSQL is the future authoritative record; telemetry is
 correlated observation. Never store credentials or hidden model reasoning in a

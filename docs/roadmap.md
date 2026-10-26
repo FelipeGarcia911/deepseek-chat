@@ -273,12 +273,15 @@ Still incomplete or only partial:
 
 **General description:** Specify the allowed lifecycle for drafts, versions, deployments, documents, conversations and runs.
 
+**Implementation:** [Platform lifecycle states](lifecycle.md) defines diagrams, guarded transitions, atomic results, invalid operations and race/recovery policies. Assistant responses have exact successful-Run provenance, at most one response per succeeded Run, and none for nonterminal/failed/cancelled/expired Runs; streaming output alone is not a confirmed Message.
+
 **Acceptance criteria:**
 
 - State diagrams cover publish, promote, roll back, ingestion, generation and failure.
 - Invalid transitions are explicitly listed.
 - A Conversation pins its execution target when it begins: a resolved Assistant Version for public/published previews, or an immutable Draft snapshot for Playground.
 - Production promotion changes an alias, not the immutable version.
+- Every committed assistant Message belongs to exactly the succeeded Run that produced it. A succeeded Run confirms at most one assistant Message; failed, cancelled and expired Runs confirm none. Completion and response linkage are atomic, including cancellation/timeout races and persistence failures.
 
 **Technical justification and learning:** Lifecycle bugs are common when states are inferred from nullable fields. Learn explicit state machines, invariants and reproducible releases.
 
@@ -389,6 +392,7 @@ Still incomplete or only partial:
 - Published-version Conversations pin `assistantVersionId` at creation; Draft previews need explicit snapshot targets rather than invented Version IDs.
 - Message ordering is deterministic.
 - A Run records status, provider/model identity, timing and errors without storing hidden reasoning.
+- Assistant response Messages reference exactly one succeeded producing Run; uniqueness, ownership and atomic completion enforce at most one response per successful Run and none for other outcomes.
 - Concurrent messages do not corrupt or reorder stored state.
 
 **Technical justification and learning:** Conversation state and model execution have different lifecycles. Learn transactions, concurrency and audit-friendly execution records.
