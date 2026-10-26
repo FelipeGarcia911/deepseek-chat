@@ -230,6 +230,8 @@ Still incomplete or only partial:
 
 **General description:** Run the full verification sequence on pull requests and align the README with executable behavior.
 
+**Implementation:** [Continuous integration](continuous-integration.md) describes the Ubuntu job, toolchain selection, unconditional frozen install, shared `pnpm verify` sequence, cache behavior and local clean-clone validation. The repository includes an MIT license; README HTTP checks explicitly distinguish the current list route from a future health contract. The first hosted run remains pending until the workflow is pushed.
+
 **Acceptance criteria:**
 
 - GitHub Actions performs a frozen install, lint, typecheck, tests and build.

@@ -35,9 +35,12 @@ those screens or administrator authentication; existing prototype routes remain.
 - pnpm 12.14.0.
 - Git.
 
-From the repository root:
+Clone the repository, then run setup from its root. The HTTPS clone does not
+depend on a particular personal or work SSH account:
 
 ```sh
+git clone https://github.com/FelipeGarcia911/deepseek-chat.git
+cd deepseek-chat
 nvm install
 nvm use
 npm install --global pnpm@12.14.0
@@ -76,6 +79,21 @@ that prefix to the API. No development proxy is configured automatically.
 Restart after env changes. Production frontend values are embedded during build;
 changing them requires rebuilding. Never put secrets in `VITE_*` settings.
 See [configuration](docs/configuration.md) for validation and precedence.
+
+## HTTP checks
+
+There is no dedicated `/health` or `/healthz` endpoint yet; the API root and
+`/api` are not health endpoints either. With the backend running, this checks
+HTTP plus the current conversation-list handler:
+
+```sh
+curl --fail http://localhost:4000/api/chats/list
+```
+
+The response is a JSON array, initially `[]`. It does not check a model or
+guarantee durable storage: the prototype file service recovers from read
+errors as an empty store. A dedicated liveness/readiness contract belongs to
+later operational work. Generation's deliberate 503 is not a failed startup.
 
 ## Run and verify
 
@@ -131,6 +149,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Backend composition and lifecycle](docs/backend-composition.md)
 - [Platform configuration](docs/configuration.md)
 - [Repository quality gates](docs/quality-gates.md)
+- [Continuous integration](docs/continuous-integration.md)
 - [Automated test foundations](docs/testing.md)
 - [Repository and test rules](AGENTS.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
@@ -138,5 +157,4 @@ components across the two surfaces of the same React app. Commit the root
 
 ## License
 
-The project package metadata currently declares MIT; adding the repository
-license file is tracked in P0.6.
+Released under the [MIT License](LICENSE).

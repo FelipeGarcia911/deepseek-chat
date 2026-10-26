@@ -123,8 +123,8 @@ frontend totals are 100% statements, 98.73% branches, 100% functions and
 follow-up adds two regression checks for lint and TypeScript boundaries.
 
 The full root verification sequence, a frozen offline install and focused
-application format/lint commands pass. GitHub Actions and clean-clone setup
-verification remain P0.6 work.
+application format/lint commands pass. P0.6 adds [continuous integration](continuous-integration.md)
+and documents clean-clone validation and the first hosted-run requirement.
 
 References: [ESLint flat configuration](https://eslint.org/docs/latest/use/configure/configuration-files),
 [typescript-eslint setup](https://typescript-eslint.io/getting-started/),

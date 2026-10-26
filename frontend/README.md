@@ -1,50 +1,29 @@
-# React + TypeScript + Vite
+# React application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This workspace contains the single React application for the platform's future
+public chat and administration surfaces. It uses Vite, TypeScript, Material UI
+and Redux. The prototype currently exposes `/` and `/chat/:id`.
 
-Currently, two official plugins are available:
+Install and run commands from the repository root, not from this directory.
+Follow the [root setup instructions](../README.md#prerequisites-and-setup)
+to select Node/pnpm, install the shared lockfile and prepare environment files.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ["./tsconfig.node.json", "./tsconfig.app.json"],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-});
+```sh
+pnpm dev:frontend
+pnpm --filter frontend test
+pnpm verify
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+`pnpm dev:frontend` builds and watches the internal libraries as well as Vite.
+The default browser URL is `http://localhost:5173`. Start the backend separately
+with `pnpm dev:backend`, or use root `pnpm dev` for both applications.
 
-```js
-// eslint.config.js
-import react from "eslint-plugin-react";
+`VITE_API_BASE_URL` is required and public. The local example points at
+`http://localhost:4000/api`; a root-relative `/api` needs a deployment route or
+reverse proxy, which the development server does not provide automatically.
+Values are embedded in production bundles. See [configuration](../docs/configuration.md).
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: "18.3" } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs["jsx-runtime"].rules,
-  },
-});
-```
+Generation remains unavailable with `503 MODEL_NOT_CONFIGURED`. Conversation
+creation, listing, history and deletion require no model. See the root README
+for current behavior, [test foundations](../docs/testing.md) for component tests
+and [quality gates](../docs/quality-gates.md) for lint, types and coverage.
