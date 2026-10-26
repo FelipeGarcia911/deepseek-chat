@@ -4,15 +4,24 @@ import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "./App";
-import service from "./services/Chat";
+import service from "./services/Conversations";
 import reducer from "./store/reducers/Chat";
 
 beforeEach(() => {
   window.history.replaceState({}, "", "/");
-  vi.spyOn(service, "fetchChats").mockResolvedValue([{ id: "known", title: "Existing chat", messages: [] }]);
-  vi.spyOn(service, "getChatHistory").mockResolvedValue([{ sender: "user", text: "Stored question" }]);
-  vi.spyOn(service, "createChat").mockImplementation(async (title) => ({ id: "created", title, messages: [] }));
-  vi.spyOn(service, "deleteChat").mockResolvedValue();
+  vi.spyOn(service, "listConversations").mockResolvedValue([
+    { id: "known", title: "Existing chat", createdAt: "2026-10-26T12:00:00.000Z", messages: [] },
+  ]);
+  vi.spyOn(service, "listMessages").mockResolvedValue([
+    { id: "m-1", role: "user", content: "Stored question", createdAt: "2026-10-26T12:00:00.000Z" },
+  ]);
+  vi.spyOn(service, "createConversation").mockImplementation(async (title) => ({
+    id: "created",
+    title,
+    createdAt: "2026-10-26T12:00:00.000Z",
+    messages: [],
+  }));
+  vi.spyOn(service, "deleteConversation").mockResolvedValue();
 });
 
 function renderApp() {
@@ -52,7 +61,7 @@ it("should create from the sidebar and return home with the home control", async
 it("should show loading while conversations are fetched and display an unknown-chat state afterward", async () => {
   window.history.replaceState({}, "", "/chat/missing");
   let finish!: (chats: []) => void;
-  vi.mocked(service.fetchChats).mockReturnValue(
+  vi.mocked(service.listConversations).mockReturnValue(
     new Promise((resolve) => {
       finish = resolve;
     })
@@ -66,7 +75,7 @@ it("should show loading while conversations are fetched and display an unknown-c
 
 it("should keep the current conversation when deletion fails", async () => {
   const error = vi.spyOn(console, "error").mockImplementation(() => {});
-  vi.mocked(service.deleteChat).mockRejectedValue(new Error("Synthetic delete failure"));
+  vi.mocked(service.deleteConversation).mockRejectedValue(new Error("Synthetic delete failure"));
   const user = userEvent.setup();
   renderApp();
   await user.click(await screen.findByText("Existing chat"));

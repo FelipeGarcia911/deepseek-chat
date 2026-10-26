@@ -8,8 +8,13 @@ describe("ChatWindow", () => {
       <ChatWindow
         loading={false}
         messages={[
-          { sender: "user", text: "**User question**" },
-          { sender: "bot", text: "## Assistant answer\n\nRead the [reference](https://example.test/reference)." },
+          { id: "m-1", role: "user", content: "**User question**", createdAt: "2026-10-26T12:00:00.000Z" },
+          {
+            id: "m-2",
+            role: "assistant",
+            content: "## Assistant answer\n\nRead the [reference](https://example.test/reference).",
+            createdAt: "2026-10-26T12:00:00.000Z",
+          },
         ]}
       />
     );

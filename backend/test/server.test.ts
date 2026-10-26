@@ -92,7 +92,7 @@ async function launch(t: TestContext, environment: Environment = {}, envFile?: E
       await waitForOutput(/Server running on http:\/\/localhost:\d+/);
       assert.equal(child.exitCode, null, output);
       const port = output.match(/Server running on http:\/\/localhost:(\d+)/)![1];
-      return `http://127.0.0.1:${port}/api/chats`;
+      return `http://127.0.0.1:${port}/api/v1`;
     },
   };
 }
@@ -104,7 +104,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     let client!: ClientRequest;
     const pending = new Promise<{ status: number | undefined; body: { title: string } }>((resolve, reject) => {
       client = request(
-        `${url}/new`,
+        `${url}/runtime/conversations`,
         { method: "POST", headers: { "Content-Type": "application/json", Connection: "close" } },
         (res) => {
           let body = "";
@@ -120,10 +120,10 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     t.onTestFinished(() => {
       client.destroy();
     });
-    await running.waitForOutput(/POST \/api\/chats\/new/);
+    await running.waitForOutput(/POST \/api\/v1\/runtime\/conversations/);
     running.child.kill(signal);
     await running.waitForOutput(new RegExp(`${signal} received: closing HTTP server`));
-    await assert.rejects(fetch(`${url}/list`));
+    await assert.rejects(fetch(`${url}/admin/conversations`));
     assert.equal(running.child.exitCode, null);
     client.end('"Synthetic private title"}');
     const response = await pending;
@@ -150,7 +150,9 @@ test(
         `NODE_ENV=development\nPORT=${port}\nCORS_ORIGINS=https://from-file.example.test\nCHAT_STORAGE_PATH=${storagePath}\n`
     );
     const url = await running.ready();
-    const response = await fetch(`${url}/list`, { headers: { Origin: "https://from-file.example.test" } });
+    const response = await fetch(`${url}/admin/conversations`, {
+      headers: { Origin: "https://from-file.example.test" },
+    });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("Access-Control-Allow-Origin"), "https://from-file.example.test");
     running.child.kill("SIGTERM");
@@ -171,7 +173,9 @@ test("should prioritize process configuration over the env file", { timeout: 10_
     "NODE_ENV=invalid\nPORT=invalid\nCORS_ORIGINS=invalid\nCHAT_STORAGE_PATH=invalid\n"
   );
   const url = await running.ready();
-  const response = await fetch(`${url}/list`, { headers: { Origin: "https://from-process.example.test" } });
+  const response = await fetch(`${url}/admin/conversations`, {
+    headers: { Origin: "https://from-process.example.test" },
+  });
   assert.equal(response.status, 200);
   running.child.kill("SIGTERM");
   assert.equal((await running.exited)[0], 0);

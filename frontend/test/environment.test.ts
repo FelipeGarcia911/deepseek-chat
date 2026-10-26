@@ -15,6 +15,8 @@ import { fileURLToPath } from "node:url";
 import { build, createServer as createViteServer } from "vite";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+const conversationId = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
+const createdAt = "2026-10-26T12:00:00.000Z";
 const require = createRequire(import.meta.url);
 const viteCli = path.join(path.dirname(require.resolve("vite/package.json")), "bin/vite.js");
 
@@ -57,7 +59,7 @@ test("should use the configured origin and API path prefix", async (t) => {
       );
       return;
     }
-    res.end(JSON.stringify([{ id: "1730000000000", title: "Test chat" }]));
+    res.end(JSON.stringify({ items: [{ id: conversationId, title: "Test chat", createdAt }], nextCursor: null }));
   });
   t.onTestFinished(
     () => new Promise<void>((resolve, reject) => api.close((error) => (error ? reject(error) : resolve())))
@@ -72,10 +74,12 @@ test("should use the configured origin and API path prefix", async (t) => {
     logLevel: "silent",
   });
   t.onTestFinished(() => vite.close());
-  const { default: service } = await vite.ssrLoadModule("/src/services/Chat.ts");
-  assert.deepEqual(await service.fetchChats(), [{ id: "1730000000000", title: "Test chat", messages: [] }]);
-  assert.deepEqual(paths, ["/platform/api/chats/list"]);
-  await assert.rejects(service.sendMessage("1730000000000", "Synthetic question"), (error) => {
+  const { default: service } = await vite.ssrLoadModule("/src/services/Conversations.ts");
+  assert.deepEqual(await service.listConversations(), [
+    { id: conversationId, title: "Test chat", createdAt, messages: [] },
+  ]);
+  assert.deepEqual(paths, ["/platform/api/v1/admin/conversations?limit=100"]);
+  await assert.rejects(service.sendMessage(conversationId, "Synthetic question"), (error) => {
     assert.ok(error instanceof Error);
     assert.equal(error.name, "ApiError");
     assert.equal(error.message, "No Model Profile has been configured.");
@@ -90,7 +94,10 @@ test("should use the configured origin and API path prefix", async (t) => {
     assert.ok(axios.isAxiosError(cause));
     return true;
   });
-  assert.deepEqual(paths, ["/platform/api/chats/list", "/platform/api/chats/1730000000000/message"]);
+  assert.deepEqual(paths, [
+    "/platform/api/v1/admin/conversations?limit=100",
+    `/platform/api/v1/runtime/conversations/${conversationId}/messages`,
+  ]);
 });
 
 test("should bundle the selected public API URL rather than the previous hard-coded URL", async (t) => {

@@ -28,20 +28,21 @@ fabricating a response or making a provider request. The prototype's direct
 Ollama service and global model configuration are removed.
 
 The monorepo contains `frontend/`, `backend/`, `packages/ui/` and
-`packages/shared/`. Shared holds the legacy chat wire contracts and error catalog
+`packages/shared/`. Shared holds the conversation wire contracts and error catalog
 ([ADR-002](adr/002-share-runtime-validated-api-contracts.md)); UI is still empty. Components
 remain in frontend. The current prototype routes have not yet been replaced
 by the target public/admin routes. See [internal packages](internal-packages.md).
 
-| Boundary                                                                                                | Implemented responsibility                                                                              |
-| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [Frontend config](../frontend/src/config/index.ts) and [HTTP service](../frontend/src/services/Chat.ts) | Validated public API base from Vite; generation failures propagate rather than becoming assistant text. |
-| [Backend config](../backend/src/config.ts)                                                              | Pure immutable platform configuration; no model or dotenv side effects.                                 |
-| [server.ts](../backend/src/server.ts)                                                                   | Executable-only dotenv loading, validation before composition, HTTP startup and shutdown.               |
-| [composition.ts](../backend/src/composition.ts)                                                         | Explicit storage construction and initialization; no provider dependency.                               |
-| [app.ts](../backend/src/app.ts) and [controller](../backend/src/controllers/ChatController.ts)          | Configured CORS, injected storage methods, CRUD and unconfigured generation state.                      |
-| [http.ts](../backend/src/http.ts)                                                                       | Request IDs, schema validation, typed-error mapping and RFC 9457 problem responses.                     |
-| [ChatService.ts](../backend/src/services/ChatService.ts)                                                | In-memory chat state and full JSON-file writes; failed writes leave memory unchanged and return 503.    |
+| Boundary                                                                                                | Implemented responsibility                                                                                   |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [Frontend config](../frontend/src/config/index.ts) and [HTTP service](../frontend/src/services/Chat.ts) | Validated public API base from Vite; generation failures propagate rather than becoming assistant text.      |
+| [Backend config](../backend/src/config.ts)                                                              | Pure immutable platform configuration; no model or dotenv side effects.                                      |
+| [server.ts](../backend/src/server.ts)                                                                   | Executable-only dotenv loading, validation before composition, HTTP startup and shutdown.                    |
+| [composition.ts](../backend/src/composition.ts)                                                         | Explicit storage construction and initialization; no provider dependency.                                    |
+| [routes/index.ts](../backend/src/routes/index.ts)                                                       | `/api/v1/admin` and `/api/v1/runtime` route groups; see [API surfaces](api-surfaces.md).                     |
+| [app.ts](../backend/src/app.ts) and [controller](../backend/src/controllers/ConversationController.ts)  | Configured CORS, injected storage methods, CRUD and unconfigured generation state.                           |
+| [http.ts](../backend/src/http.ts)                                                                       | Request IDs, schema validation, typed-error mapping and RFC 9457 problem responses.                          |
+| [ConversationService.ts](../backend/src/services/ConversationService.ts)                                | In-memory conversation state and full JSON-file writes; failed writes leave memory unchanged and return 503. |
 
 `CHAT_STORAGE_PATH` resolves from the backend package consistently in source and
 compiled execution. The JSON store still cannot guarantee concurrent-write

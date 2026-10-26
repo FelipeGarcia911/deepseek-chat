@@ -54,7 +54,7 @@ through its package scripts. Process values take precedence over env-file
 values. Frontend env changes require a Vite restart or a production rebuild.
 
 The API has no `/health` or `/healthz` route yet. The documented manual check
-uses `/api/chats/list`, which exercises the HTTP handler but is not a model,
+uses `/api/v1/admin/conversations`, which exercises the HTTP handler but is not a model,
 readiness or durable-storage guarantee. A 503 from generation means the model
 is deliberately unconfigured, not that the server failed to start.
 

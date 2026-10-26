@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { errorCatalog, problemContentType, type ErrorCode, type ProblemDetails } from "@chat-app/shared";
+import {
+  errorCatalog,
+  problemContentType,
+  type ErrorCode,
+  type PageQuery,
+  type ProblemDetails,
+} from "@chat-app/shared";
 import type { ErrorRequestHandler, Request, RequestHandler, Response } from "express";
 import { AppError } from "./errors";
 
@@ -24,10 +30,10 @@ export function sendProblem(res: Response, code: ErrorCode, detail: string, erro
   res.status(status).type(problemContentType).json(problem);
 }
 
-export function validate(schemas: { params?: Schema; body?: Schema }): RequestHandler {
+export function validate(schemas: { params?: Schema; query?: Schema; body?: Schema }): RequestHandler {
   return (req, res, next) => {
     const errors: NonNullable<ProblemDetails["errors"]> = [];
-    for (const part of ["params", "body"] as const) {
+    for (const part of ["params", "query", "body"] as const) {
       const schema = schemas[part];
       if (!schema) continue;
       const result = schema.safeParse(req[part]);
@@ -41,7 +47,20 @@ export function validate(schemas: { params?: Schema; body?: Schema }): RequestHa
   };
 }
 
-// ponytail: Express 4 ignores rejected promises; Express 5 forwards them natively and makes this wrapper unnecessary.
+const encodeCursor = (id: string) => Buffer.from(id).toString("base64url");
+
+export function paginate<T extends { id: string }>(items: T[], { limit, cursor }: PageQuery) {
+  let start = 0;
+  if (cursor !== undefined) {
+    const index = items.findIndex((item) => encodeCursor(item.id) === cursor);
+    if (index < 0) throw new AppError("VALIDATION_FAILED", "The cursor is invalid or no longer available.");
+    start = index + 1;
+  }
+  const page = items.slice(start, start + limit);
+  const hasMore = start + limit < items.length;
+  return { items: page, nextCursor: hasMore ? encodeCursor(page[page.length - 1].id) : null };
+}
+
 export function handle(handler: (req: Request, res: Response) => Promise<void>): RequestHandler {
   return (req, res, next) => {
     handler(req, res).catch(next);

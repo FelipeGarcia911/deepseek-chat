@@ -125,10 +125,10 @@ VITE_API_BASE_URL=https://gateway.example.com/platform/api
 ```
 
 The list request targets
-`https://gateway.example.com/platform/api/chats/list`. With `/api`, it targets
-`/api/chats/list` on the browser's origin. A same-origin deployment must route
+`https://gateway.example.com/platform/api/v1/admin/conversations`. With `/api`, it
+targets `/api/v1/admin/conversations` on the browser's origin. A same-origin deployment must route
 that API prefix to the backend; a proxy is not added by this task. The API
-base excludes `/chats`, which the HTTP service appends. No localhost fallback
+base excludes `/v1/admin` and `/v1/runtime`, which the HTTP service appends. No localhost fallback
 exists in application code.
 
 Vite loads env files by mode and gives existing process variables priority.

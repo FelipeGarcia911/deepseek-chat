@@ -2,7 +2,8 @@
 
 `@chat-app/shared` holds the wire contracts selected in
 [ADR-002](adr/002-share-runtime-validated-api-contracts.md): Zod schemas for the
-legacy chat endpoints, the error-code catalog and the problem-details schema.
+conversation endpoints and pagination, the error-code catalog and the
+problem-details schema.
 `@chat-app/ui` still exports nothing. The administration surface will be added
 later within the existing React application.
 

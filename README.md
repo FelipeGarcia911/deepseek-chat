@@ -74,7 +74,7 @@ paths resolve from `backend/`, consistently in development and compiled runs.
 The parent directory is created when needed; `backend/data/` is ignored by Git.
 
 The frontend requires a **public** API base, including `/api` but excluding
-`/chats`:
+`/v1`:
 
 ```dotenv
 VITE_API_BASE_URL=http://localhost:4000/api
@@ -93,7 +93,7 @@ There is no dedicated `/health` or `/healthz` endpoint yet; the API root and
 HTTP plus the current conversation-list handler:
 
 ```sh
-curl --fail http://localhost:4000/api/chats/list
+curl --fail http://localhost:4000/api/v1/admin/conversations
 ```
 
 The response is a JSON array, initially `[]`. It does not check a model or
@@ -114,7 +114,7 @@ pnpm dev
 
 This builds the internal packages, then starts their watchers and both the
 frontend and backend. With the examples, open `http://localhost:5173`; the API
-list endpoint is `http://localhost:4000/api/chats/list`. Ctrl+C stops the group.
+list endpoint is `http://localhost:4000/api/v1/admin/conversations`. Ctrl+C stops the group.
 If Vite selects another port, explicitly add that origin to `CORS_ORIGINS` and
 restart the backend. Requests with unknown Origin headers receive 403;
 requests without Origin remain available to local tools.
@@ -160,6 +160,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Repository and test rules](AGENTS.md)
 - [Domain glossary and ownership](docs/domain.md)
 - [Lifecycle states and invariants](docs/lifecycle.md)
+- [API surfaces: admin and runtime routes](docs/api-surfaces.md)
 - [ADR-002: API contract strategy](docs/adr/002-share-runtime-validated-api-contracts.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)

@@ -19,18 +19,44 @@ async function fixture(t: TestContext, origins = "https://allowed.example.test",
   return { app, config, storagePath, api: request(app) };
 }
 
-const base = "/api/chats";
+const admin = "/api/v1/admin/conversations";
+const runtime = "/api/v1/runtime/conversations";
 
-test("should support list, create, history and delete without a configured model", async (t) => {
+const emptyPage = { items: [], nextCursor: null };
+const unknownId = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
+
+test("should support list, create, messages and delete without a configured model", async (t) => {
   const { api } = await fixture(t);
-  await api.get(`${base}/list`).expect(200, []);
-  const { body: chat } = await api.post(`${base}/new`).send({ title: "Test chat" }).expect(201);
+  await api.get(admin).expect(200, emptyPage);
+  const { body: chat } = await api.post(runtime).send({ title: "Test chat" }).expect(201);
   assert.equal(chat.title, "Test chat");
-  assert.equal(typeof chat.id, "string");
-  await api.get(`${base}/list`).expect(200, [{ id: chat.id, title: "Test chat" }]);
-  await api.get(`${base}/${chat.id}/history`).expect(200, []);
-  await api.delete(`${base}/${chat.id}`).expect(200, { message: "Chat deleted successfully." });
-  await api.get(`${base}/list`).expect(200, []);
+  assert.match(chat.id, /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  assert.ok(!Number.isNaN(Date.parse(chat.createdAt)));
+  await api.get(admin).expect(200, { items: [chat], nextCursor: null });
+  await api.get(`${runtime}/${chat.id}/messages`).expect(200, emptyPage);
+  await api.delete(`${admin}/${chat.id}`).expect(204, "");
+  await api.get(admin).expect(200, emptyPage);
+});
+
+test("should page conversations newest first with an opaque cursor", async (t) => {
+  const { api } = await fixture(t);
+  const titles = ["First", "Second", "Third"];
+  for (const title of titles) await api.post(runtime).send({ title }).expect(201);
+  const first = await api.get(admin).query({ limit: 2 }).expect(200);
+  assert.deepEqual(
+    first.body.items.map((item: { title: string }) => item.title),
+    ["Third", "Second"]
+  );
+  assert.equal(typeof first.body.nextCursor, "string");
+  const second = await api.get(admin).query({ limit: 2, cursor: first.body.nextCursor }).expect(200);
+  assert.deepEqual(
+    second.body.items.map((item: { title: string }) => item.title),
+    ["First"]
+  );
+  assert.equal(second.body.nextCursor, null);
+  for (const query of [{ limit: 0 }, { limit: 101 }, { cursor: "unknown" }, { page: 2 }]) {
+    assertProblem(await api.get(admin).query(query), 400, "VALIDATION_FAILED");
+  }
 });
 
 function assertProblem(response: request.Response, status: number, code: string) {
@@ -45,17 +71,17 @@ function assertProblem(response: request.Response, status: number, code: string)
 
 test("should return a stable 503 problem without saving messages or making external requests", async (t) => {
   const { api, storagePath } = await fixture(t);
-  const { body: chat } = await api.post(`${base}/new`).send({ title: "Test chat" }).expect(201);
+  const { body: chat } = await api.post(`${runtime}`).send({ title: "Test chat" }).expect(201);
   const before = await readFile(storagePath, "utf8");
   const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected outgoing fetch"));
   const httpsSpy = vi.spyOn(https, "request").mockImplementation(() => {
     throw new Error("Unexpected outgoing HTTPS request");
   });
   const httpSpy = vi.spyOn(http, "request");
-  const response = await api.post(`${base}/${chat.id}/message`).send({ message: "Synthetic question" });
+  const response = await api.post(`${runtime}/${chat.id}/messages`).send({ content: "Synthetic question" });
   assertProblem(response, 503, "MODEL_NOT_CONFIGURED");
   assert.equal(response.body.detail, "No Model Profile has been configured.");
-  await api.get(`${base}/${chat.id}/history`).expect(200, []);
+  await api.get(`${runtime}/${chat.id}/messages`).expect(200, emptyPage);
   assert.equal(await readFile(storagePath, "utf8"), before);
   assert.equal(fetchSpy.mock.calls.length, 0);
   assert.equal(httpsSpy.mock.calls.length, 0);
@@ -67,18 +93,21 @@ test("should return a stable 503 problem without saving messages or making exter
 
 test("should reject invalid titles, identifiers and messages with field-level validation problems", async (t) => {
   const { api, storagePath } = await fixture(t);
-  const { body: chat } = await api.post(`${base}/new`).send({ title: "Test chat" }).expect(201);
+  const { body: chat } = await api.post(`${runtime}`).send({ title: "Test chat" }).expect(201);
   const before = await readFile(storagePath, "utf8");
   const cases = [
-    { call: () => api.post(`${base}/new`).send({}), path: "body.title" },
-    { call: () => api.post(`${base}/new`).send({ title: "   " }), path: "body.title" },
-    { call: () => api.post(`${base}/new`).send({ title: "x".repeat(121) }), path: "body.title" },
-    { call: () => api.post(`${base}/new`).send({ title: "Valid", owner: "someone" }), path: "body" },
-    { call: () => api.get(`${base}/not-a-number/history`), path: "params.chatId" },
-    { call: () => api.delete(`${base}/1a`), path: "params.chatId" },
-    { call: () => api.post(`${base}/${chat.id}/message`).send({ message: " " }), path: "body.message" },
-    { call: () => api.post(`${base}/${chat.id}/message`).send({ message: "x".repeat(4001) }), path: "body.message" },
-    { call: () => api.post(`${base}/${chat.id}/message`).send({ chatId: chat.id, message: "Hi" }), path: "body" },
+    { call: () => api.post(`${runtime}`).send({}), path: "body.title" },
+    { call: () => api.post(`${runtime}`).send({ title: "   " }), path: "body.title" },
+    { call: () => api.post(`${runtime}`).send({ title: "x".repeat(121) }), path: "body.title" },
+    { call: () => api.post(`${runtime}`).send({ title: "Valid", owner: "someone" }), path: "body" },
+    { call: () => api.get(`${runtime}/not-a-number/messages`), path: "params.conversationId" },
+    { call: () => api.delete(`${admin}/1730000000000`), path: "params.conversationId" },
+    { call: () => api.post(`${runtime}/${chat.id}/messages`).send({ content: " " }), path: "body.content" },
+    {
+      call: () => api.post(`${runtime}/${chat.id}/messages`).send({ content: "x".repeat(4001) }),
+      path: "body.content",
+    },
+    { call: () => api.post(`${runtime}/${chat.id}/messages`).send({ message: "Hi" }), path: "body" },
   ];
   for (const { call, path: field } of cases) {
     const response = await call();
@@ -93,16 +122,30 @@ test("should reject invalid titles, identifiers and messages with field-level va
 
 test("should trim a valid title before storing it", async (t) => {
   const { api } = await fixture(t);
-  const { body } = await api.post(`${base}/new`).send({ title: "  Spaced title  " }).expect(201);
+  const { body } = await api.post(`${runtime}`).send({ title: "  Spaced title  " }).expect(201);
   assert.equal(body.title, "Spaced title");
+});
+
+test("should keep admin and runtime operations in separate route groups without legacy routes", async (t) => {
+  const { api } = await fixture(t);
+  for (const call of [
+    () => api.post(admin).send({ title: "Admin cannot create runtime conversations" }),
+    () => api.get(runtime),
+    () => api.delete(`${runtime}/${unknownId}`),
+    () => api.get(`${admin}/${unknownId}/messages`),
+    () => api.get("/api/chats/list"),
+    () => api.post("/api/chats/new").send({ title: "Legacy route" }),
+  ]) {
+    assertProblem(await call(), 404, "NOT_FOUND");
+  }
 });
 
 test("should return not-found problems for unknown chats and routes", async (t) => {
   const { api } = await fixture(t);
   for (const call of [
-    () => api.get(`${base}/1/history`),
-    () => api.delete(`${base}/1`),
-    () => api.post(`${base}/1/message`).send({ message: "Synthetic question" }),
+    () => api.get(`${runtime}/${unknownId}/messages`),
+    () => api.delete(`${admin}/${unknownId}`),
+    () => api.post(`${runtime}/${unknownId}/messages`).send({ content: "Synthetic question" }),
     () => api.get("/api/unknown"),
   ]) {
     assertProblem(await call(), 404, "NOT_FOUND");
@@ -113,25 +156,25 @@ test("should report storage failures as an unavailable dependency without keepin
   const { api, storagePath } = await fixture(t);
   vi.spyOn(console, "error").mockImplementation(() => {});
   await rm(path.dirname(storagePath), { recursive: true });
-  assertProblem(await api.post(`${base}/new`).send({ title: "Unsaved chat" }), 503, "DEPENDENCY_UNAVAILABLE");
-  await api.get(`${base}/list`).expect(200, []);
+  assertProblem(await api.post(`${runtime}`).send({ title: "Unsaved chat" }), 503, "DEPENDENCY_UNAVAILABLE");
+  await api.get(`${admin}`).expect(200, emptyPage);
   assert.equal(vi.mocked(console.error).mock.calls.length, 1);
 });
 
 test("should accept configured origins, preflight and requests without Origin", async (t) => {
   const { api } = await fixture(t);
   await api
-    .get(`${base}/list`)
+    .get(`${admin}`)
     .set("Origin", "https://allowed.example.test")
     .expect(200)
     .expect("Access-Control-Allow-Origin", "https://allowed.example.test");
   await api
-    .options(`${base}/new`)
+    .options(`${runtime}`)
     .set("Origin", "https://allowed.example.test")
     .set("Access-Control-Request-Method", "POST")
     .expect(204)
     .expect("Access-Control-Allow-Origin", "https://allowed.example.test");
-  const local = await api.get(`${base}/list`).expect(200);
+  const local = await api.get(`${admin}`).expect(200);
   assert.equal(local.headers["access-control-allow-origin"], undefined);
 });
 
@@ -139,13 +182,13 @@ test("should reject unconfigured origins before handlers or storage writes", asy
   const { api, storagePath } = await fixture(t);
   const before = await readFile(storagePath, "utf8");
   const rejected = await api
-    .post(`${base}/new`)
+    .post(`${runtime}`)
     .set("Origin", "https://denied.example.test")
     .send({ title: "Must not be stored" });
   assertProblem(rejected, 403, "ORIGIN_NOT_ALLOWED");
   assert.equal(rejected.headers["access-control-allow-origin"], undefined);
   await api
-    .options(`${base}/new`)
+    .options(`${runtime}`)
     .set("Origin", "https://denied.example.test")
     .set("Access-Control-Request-Method", "POST")
     .expect(403);
@@ -158,19 +201,19 @@ test("should compose two applications with independent storage, origins and node
   assert.equal(first.app.get("env"), "development");
   assert.equal(second.app.get("env"), "production");
   await first.api
-    .post(`${base}/new`)
+    .post(`${runtime}`)
     .set("Origin", "https://first.example.test")
     .send({ title: "First app chat" })
     .expect(201);
-  await second.api.get(`${base}/list`).set("Origin", "https://first.example.test").expect(403);
-  await second.api.get(`${base}/list`).set("Origin", "https://second.example.test").expect(200, []);
+  await second.api.get(`${admin}`).set("Origin", "https://first.example.test").expect(403);
+  await second.api.get(`${admin}`).set("Origin", "https://second.example.test").expect(200, emptyPage);
   assert.equal(await readFile(second.storagePath, "utf8"), "[]");
 });
 
 test("should return client problems for malformed and oversized JSON bodies", async (t) => {
   const { api } = await fixture(t);
-  const malformed = await api.post(`${base}/new`).set("Content-Type", "application/json").send('{"title":');
+  const malformed = await api.post(`${runtime}`).set("Content-Type", "application/json").send('{"title":');
   assertProblem(malformed, 400, "VALIDATION_FAILED");
-  const oversized = await api.post(`${base}/new`).send({ title: "x".repeat(40_000) });
+  const oversized = await api.post(`${runtime}`).send({ title: "x".repeat(40_000) });
   assertProblem(oversized, 413, "PAYLOAD_TOO_LARGE");
 });

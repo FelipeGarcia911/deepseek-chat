@@ -228,12 +228,13 @@ entities, persistence models and server-only logic there.
   endpoints and the problem-details envelope, validates in one backend
   middleware, maps errors in one handler and makes the frontend parse responses
   and surface failures instead of returning empty lists.
-- P1.5 moves routes to `/api/v1/admin` and `/api/v1/runtime`. Because the single
-  frontend deploys with the backend, legacy `/api/chats` routes are removed in
-  the same change rather than kept as aliases.
-- Legacy `Date.now()` chat identifiers are a legacy format: their schema
-  accepts them only on legacy chat routes. UUIDv7 applies to new entities from
-  P2, and P2.6 migrates or retires the JSON records.
+- P1.5 moves routes to `/api/v1/admin` and `/api/v1/runtime` and replaces the
+  prototype contracts without backward compatibility: UUID identifiers,
+  `role`/`content` messages with `createdAt`, `{ items, nextCursor }` pages and
+  the assistant `Message` as the send response. `/api/chats`, `Date.now()`
+  identifiers and `sender: "bot"` are removed; existing JSON files in the old
+  shape are not migrated. Until P2, the JSON store uses random UUIDs; PostgreSQL
+  then generates UUIDv7.
 - `{ error }` and `{ code, error }` bodies are replaced by problem details in
   P1.4; no client outside this repository depends on them.
 

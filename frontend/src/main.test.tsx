@@ -2,7 +2,7 @@ import { waitFor } from "@testing-library/react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
-import service from "./services/Chat";
+import service from "./services/Conversations";
 
 vi.mock("react-dom/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("react-dom/client")>();
@@ -10,7 +10,7 @@ vi.mock("react-dom/client", async (importOriginal) => {
 });
 
 it("should mount the application into the root element", async (t) => {
-  vi.spyOn(service, "fetchChats").mockResolvedValue([]);
+  vi.spyOn(service, "listConversations").mockResolvedValue([]);
   const container = document.createElement("div");
   container.id = "root";
   document.body.append(container);

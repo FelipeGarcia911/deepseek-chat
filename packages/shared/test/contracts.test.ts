@@ -1,49 +1,70 @@
 import { describe, expect, it } from "vitest";
 import {
-  ChatHistory,
-  ChatList,
-  ChatParams,
-  CreateChatRequest,
+  ConversationPage,
+  ConversationParams,
+  CreateConversationRequest,
+  MessagePage,
+  PageQuery,
   ProblemDetails,
   SendMessageRequest,
-  chatTitleMaxLength,
+  conversationTitleMaxLength,
   errorCatalog,
   messageMaxLength,
 } from "../src/index.js";
 
-describe("legacy chat contracts", () => {
-  it("should accept numeric legacy identifiers and reject anything else", () => {
-    expect(ChatParams.parse({ chatId: "1730000000000" })).toEqual({ chatId: "1730000000000" });
-    for (const chatId of ["", "abc", "12a", "1".repeat(21), "../1"]) {
-      expect(ChatParams.safeParse({ chatId }).success).toBe(false);
+const id = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
+const createdAt = "2026-10-26T12:00:00.000Z";
+
+describe("conversation contracts", () => {
+  it("should accept UUID identifiers and reject anything else", () => {
+    expect(ConversationParams.parse({ conversationId: id })).toEqual({ conversationId: id });
+    for (const conversationId of ["", "1730000000000", "not-a-uuid", `${id}0`, "../1"]) {
+      expect(ConversationParams.safeParse({ conversationId }).success).toBe(false);
     }
   });
 
   it("should trim titles and enforce their length limits", () => {
-    expect(CreateChatRequest.parse({ title: "  Planning  " })).toEqual({ title: "Planning" });
-    expect(CreateChatRequest.parse({ title: "x".repeat(chatTitleMaxLength) }).title).toHaveLength(chatTitleMaxLength);
-    for (const title of ["", "   ", "x".repeat(chatTitleMaxLength + 1), 42, undefined]) {
-      expect(CreateChatRequest.safeParse({ title }).success).toBe(false);
+    expect(CreateConversationRequest.parse({ title: "  Planning  " })).toEqual({ title: "Planning" });
+    const longest = "x".repeat(conversationTitleMaxLength);
+    expect(CreateConversationRequest.parse({ title: longest }).title).toHaveLength(conversationTitleMaxLength);
+    for (const title of ["", "   ", "x".repeat(conversationTitleMaxLength + 1), 42, undefined]) {
+      expect(CreateConversationRequest.safeParse({ title }).success).toBe(false);
     }
   });
 
-  it("should preserve message text and reject blank, oversized or extra fields", () => {
-    expect(SendMessageRequest.parse({ message: "  Hello  " })).toEqual({ message: "  Hello  " });
-    expect(SendMessageRequest.safeParse({ message: "x".repeat(messageMaxLength) }).success).toBe(true);
+  it("should preserve message content and reject blank, oversized or extra fields", () => {
+    expect(SendMessageRequest.parse({ content: "  Hello  " })).toEqual({ content: "  Hello  " });
+    expect(SendMessageRequest.safeParse({ content: "x".repeat(messageMaxLength) }).success).toBe(true);
     for (const body of [
-      { message: " \n " },
-      { message: "x".repeat(messageMaxLength + 1) },
-      { message: "Hello", chatId: "1" },
+      { content: " \n " },
+      { content: "x".repeat(messageMaxLength + 1) },
+      { content: "Hello", conversationId: id },
+      { message: "Hello" },
       {},
     ]) {
       expect(SendMessageRequest.safeParse(body).success).toBe(false);
     }
   });
 
-  it("should validate list and history responses", () => {
-    expect(ChatList.parse([{ id: "1", title: "Chat", extra: true }])).toEqual([{ id: "1", title: "Chat" }]);
-    expect(ChatHistory.safeParse([{ text: "Hi", sender: "bot" }]).success).toBe(true);
-    expect(ChatHistory.safeParse([{ text: "Hi", sender: "system" }]).success).toBe(false);
+  it("should default and bound the page limit while keeping the cursor opaque", () => {
+    expect(PageQuery.parse({})).toEqual({ limit: 20 });
+    expect(PageQuery.parse({ limit: "100", cursor: "opaque" })).toEqual({ limit: 100, cursor: "opaque" });
+    for (const query of [{ limit: "0" }, { limit: "101" }, { limit: "1.5" }, { cursor: "" }, { offset: "1" }]) {
+      expect(PageQuery.safeParse(query).success).toBe(false);
+    }
+  });
+
+  it("should validate pages, strip undeclared members and reject legacy message shapes", () => {
+    const summary = { id, title: "Chat", createdAt };
+    expect(ConversationPage.parse({ items: [{ ...summary, internal: true }], nextCursor: null })).toEqual({
+      items: [summary],
+      nextCursor: null,
+    });
+    const message = { id, role: "assistant", content: "Hi", createdAt };
+    expect(MessagePage.safeParse({ items: [message], nextCursor: "next" }).success).toBe(true);
+    expect(MessagePage.safeParse({ items: [{ ...message, role: "bot" }], nextCursor: null }).success).toBe(false);
+    expect(MessagePage.safeParse({ items: [{ text: "Hi", sender: "user" }], nextCursor: null }).success).toBe(false);
+    expect(ConversationPage.safeParse([summary]).success).toBe(false);
   });
 });
 

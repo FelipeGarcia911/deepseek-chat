@@ -1,5 +1,5 @@
 import { Box, Paper, Typography } from "@mui/material";
-import { Message } from "../services/Chat";
+import type { Message } from "../services/Conversations";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -31,29 +31,29 @@ const ChatWindow = ({ messages, loading }: ChatWindowProps) => {
         gap: 1,
       }}
     >
-      {messages?.map((msg, index) => (
+      {messages?.map((msg) => (
         <Box
-          key={index}
+          key={msg.id}
           sx={{
             display: "flex",
-            justifyContent: msg.sender === "user" ? "flex-end" : "flex-start",
+            justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
           }}
         >
           <Box
             sx={{
-              bgcolor: msg.sender === "user" ? "primary.light" : "grey.300",
-              color: msg.sender === "user" ? "white" : "black",
+              bgcolor: msg.role === "user" ? "primary.light" : "grey.300",
+              color: msg.role === "user" ? "white" : "black",
               p: 1.5,
               borderRadius: "12px",
               maxWidth: "80%",
-              textAlign: msg.sender === "user" ? "right" : "left",
+              textAlign: msg.role === "user" ? "right" : "left",
               boxShadow: 1,
             }}
           >
-            {msg.sender === "bot" ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.text}</ReactMarkdown>
+            {msg.role === "assistant" ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
             ) : (
-              <Typography>{msg.text}</Typography>
+              <Typography>{msg.content}</Typography>
             )}
           </Box>
         </Box>

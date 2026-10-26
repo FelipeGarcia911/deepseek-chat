@@ -6,15 +6,15 @@ direct model composition. See the [roadmap](roadmap.md) for the task sequence.
 
 ## Responsibilities
 
-| File                                        | Responsibility                                                                                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/src/config.ts`                     | Pure `loadConfig(env): AppConfig`; validation and normalization only.                                                                       |
-| `backend/src/server.ts`                     | Loads dotenv at executable startup, validates the process environment once, starts HTTP and handles shutdown or startup failure.            |
-| `backend/src/composition.ts`                | Receives `AppConfig`, prepares the configured storage parent, initializes `ChatService` and constructs the app. No provider is constructed. |
-| `backend/src/app.ts`                        | Receives controller dependencies and only the HTTP environment/origin settings; constructs middleware and routers without listening.        |
-| `backend/src/controllers/ChatController.ts` | Receives the narrow storage methods named by `ChatServiceMethod`; exposes CRUD and the explicit unconfigured-model response.                |
-| `backend/src/routes/`                       | Creates routers from the supplied controller rather than importing global service instances.                                                |
-| `backend/src/services/ChatService.ts`       | Receives an absolute file path and initializes storage explicitly; never reads environment variables.                                       |
+| File                                                | Responsibility                                                                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/src/config.ts`                             | Pure `loadConfig(env): AppConfig`; validation and normalization only.                                                                               |
+| `backend/src/server.ts`                             | Loads dotenv at executable startup, validates the process environment once, starts HTTP and handles shutdown or startup failure.                    |
+| `backend/src/composition.ts`                        | Receives `AppConfig`, prepares the configured storage parent, initializes `ConversationService` and constructs the app. No provider is constructed. |
+| `backend/src/app.ts`                                | Receives controller dependencies and only the HTTP environment/origin settings; constructs middleware and routers without listening.                |
+| `backend/src/controllers/ConversationController.ts` | Receives the narrow storage methods it needs; exposes conversation operations and the explicit unconfigured-model response.                         |
+| `backend/src/routes/`                               | Creates routers from the supplied controller rather than importing global service instances.                                                        |
+| `backend/src/services/ConversationService.ts`       | Receives an absolute file path and initializes storage explicitly; never reads environment variables.                                               |
 
 The composition root chooses and connects concrete implementations. There is
 no DI container and no current model dependency. Imports of app, composition,

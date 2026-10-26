@@ -1,21 +1,22 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
-import ChatService, { Chat } from "../../services/Chat";
+import { v4 as uuid } from "uuid";
+import ConversationService, { type Conversation } from "../../services/Conversations";
 
 export const fetchChats = createAsyncThunk("chat/fetchChats", async () => {
-  return await ChatService.fetchChats();
+  return await ConversationService.listConversations();
 });
 
 export const fetchChatHistory = createAsyncThunk("chat/fetchChatHistory", async (chatId: string) => {
-  const messages = await ChatService.getChatHistory(chatId);
+  const messages = await ConversationService.listMessages(chatId);
   return { chatId, messages };
 });
 
 export const createChat = createAsyncThunk("chat/createChat", async (title: string) => {
-  return await ChatService.createChat(title);
+  return await ConversationService.createConversation(title);
 });
 
 export const deleteChat = createAsyncThunk("chat/deleteChat", async (chatId: string) => {
-  await ChatService.deleteChat(chatId);
+  await ConversationService.deleteConversation(chatId);
   return chatId;
 });
 
@@ -23,14 +24,14 @@ export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
   async ({ chatId, message }: { chatId: string; message: string }, { dispatch }) => {
     dispatch(addUserMessage({ chatId, message }));
-    const response = await ChatService.sendMessage(chatId, message);
+    const response = await ConversationService.sendMessage(chatId, message);
 
     return { chatId, response };
   }
 );
 
 interface ChatState {
-  chats: Chat[];
+  chats: Conversation[];
   isLoadingChats: boolean;
   isSendingMessage: boolean;
 }
@@ -49,7 +50,7 @@ const chatSlice = createSlice({
       const { chatId, message } = action.payload;
       const chat = state.chats.find((c) => c.id === chatId);
       if (chat) {
-        chat.messages.push({ text: message, sender: "user" });
+        chat.messages.push({ id: uuid(), role: "user", content: message, createdAt: new Date().toISOString() });
       }
     },
   },
@@ -59,7 +60,7 @@ const chatSlice = createSlice({
       .addCase(fetchChats.pending, (state) => {
         state.isLoadingChats = true;
       })
-      .addCase(fetchChats.fulfilled, (state, action: PayloadAction<Chat[]>) => {
+      .addCase(fetchChats.fulfilled, (state, action: PayloadAction<Conversation[]>) => {
         state.chats = action.payload;
         state.isLoadingChats = false;
       })
@@ -85,7 +86,7 @@ const chatSlice = createSlice({
       })
 
       // CreateChat
-      .addCase(createChat.fulfilled, (state, action: PayloadAction<Chat>) => {
+      .addCase(createChat.fulfilled, (state, action: PayloadAction<Conversation>) => {
         state.chats.push(action.payload);
       })
 
@@ -100,7 +101,7 @@ const chatSlice = createSlice({
         const { chatId, response } = action.payload;
         const chat = state.chats.find((c) => c.id === chatId);
         if (chat) {
-          chat.messages.push({ text: response, sender: "bot" });
+          chat.messages.push(response);
         }
         state.isSendingMessage = false;
       });

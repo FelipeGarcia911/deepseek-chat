@@ -1,16 +1,16 @@
 import express from "express";
 import cors from "cors";
 import type { AppConfig } from "./config";
-import ChatController, { type ChatControllerDependencies } from "./controllers/ChatController";
+import ConversationController, { type ConversationControllerDependencies } from "./controllers/ConversationController";
 import { assignRequestId, handleError, notFound, sendProblem } from "./http";
 import { createRouter } from "./routes";
 
 export function createApp(
-  dependencies: ChatControllerDependencies,
+  dependencies: ConversationControllerDependencies,
   config: Pick<AppConfig, "nodeEnv" | "corsOrigins">
 ) {
   const app = express();
-  const controller = new ChatController(dependencies);
+  const controller = new ConversationController(dependencies);
   app.set("env", config.nodeEnv);
 
   app.use(assignRequestId);

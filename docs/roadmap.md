@@ -324,6 +324,8 @@ Still incomplete or only partial:
 
 **General description:** Establish separate route namespaces for administration and end-user chat while keeping one backend deployment.
 
+**Implementation:** [API surfaces](api-surfaces.md) defines `/api/v1/admin` (list and delete conversations) and `/api/v1/runtime` (create, read and message a conversation) as two routers in the same Express app, each the single insertion point for its authentication and rate limits. Prototype routes and shapes are replaced without compatibility: UUID identifiers, `role`/`content` messages, `{ items, nextCursor }` cursor pages, 204 deletion and `Conversation*` names in shared, backend and the frontend service. The frontend reads every page and validates the 204. Authentication (P4.1) and rate limiting (P3.5/P7.7) are documented per group, not implemented; the admin group stays unauthenticated until P4.1.
+
 **Acceptance criteria:**
 
 - Administrative operations live under a versioned admin API.

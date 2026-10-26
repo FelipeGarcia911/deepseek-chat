@@ -3,50 +3,57 @@ import request from "supertest";
 import { test, vi } from "vitest";
 import { createApp } from "../src/app";
 import { NodeEnvironment } from "../src/config";
-import type { ChatControllerDependencies } from "../src/controllers/ChatController";
+import type { ConversationControllerDependencies } from "../src/controllers/ConversationController";
 import { AppError } from "../src/errors";
 
+type ConversationServiceStub = ConversationControllerDependencies["conversationService"];
+
+const conversationId = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
 const cases = [
-  { method: "getChats", verb: "get", route: "/list" },
-  { method: "createChat", verb: "post", route: "/new" },
-  { method: "getChatHistory", verb: "get", route: "/1/history" },
-  { method: "deleteChat", verb: "delete", route: "/1" },
+  { method: "listConversations", verb: "get", route: "/admin/conversations" },
+  { method: "createConversation", verb: "post", route: "/runtime/conversations" },
+  { method: "getMessages", verb: "get", route: `/runtime/conversations/${conversationId}/messages` },
+  { method: "deleteConversation", verb: "delete", route: `/admin/conversations/${conversationId}` },
 ] as const;
+
+function appWith(conversationService: ConversationServiceStub) {
+  return request(createApp({ conversationService }, { nodeEnv: NodeEnvironment.Test, corsOrigins: [] }));
+}
 
 function createTestApp(method: (typeof cases)[number]["method"], failure: () => never) {
   const unexpected = (): never => {
     throw new Error("Unexpected service operation");
   };
-  const chatService: ChatControllerDependencies["chatService"] = {
-    getChats: () => [],
-    createChat: unexpected,
-    getChatHistory: unexpected,
-    deleteChat: unexpected,
+  const conversationService: ConversationServiceStub = {
+    listConversations: () => [],
+    createConversation: unexpected,
+    getMessages: unexpected,
+    deleteConversation: unexpected,
     [method]: vi.fn(failure),
   };
-  return { chatService, api: request(createApp({ chatService }, { nodeEnv: NodeEnvironment.Test, corsOrigins: [] })) };
+  return { conversationService, api: appWith(conversationService) };
 }
 
 function call(api: ReturnType<typeof request>, scenario: (typeof cases)[number]) {
-  const operation = api[scenario.verb](`/api/chats${scenario.route}`);
+  const operation = api[scenario.verb](`/api/v1${scenario.route}`);
   return scenario.verb === "post" ? operation.send({ title: "Test chat" }) : operation;
 }
 
 for (const scenario of cases) {
   test(`should return an internal error problem without details for ${scenario.method} failure and remain usable`, async () => {
-    const { chatService, api } = createTestApp(scenario.method, () => {
+    const { conversationService, api } = createTestApp(scenario.method, () => {
       throw new Error("Synthetic storage failure: internal detail");
     });
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = await call(api, scenario).expect(500);
     assert.equal(response.body.code, "INTERNAL_ERROR");
     assert.doesNotMatch(JSON.stringify(response.body), /internal detail/);
-    assert.equal(vi.mocked(chatService[scenario.method]).mock.calls.length, 1);
+    assert.equal(vi.mocked(conversationService[scenario.method]).mock.calls.length, 1);
     assert.equal(errorLog.mock.calls.length, 1);
     assert.match(String(errorLog.mock.calls[0][0]), new RegExp(response.body.requestId));
 
-    chatService.getChats = () => [];
-    await api.get("/api/chats/list").expect(200, []);
+    conversationService.listConversations = () => [];
+    await api.get("/api/v1/admin/conversations").expect(200, { items: [], nextCursor: null });
   });
 
   test(`should map a typed ${scenario.method} conflict to a stable 409 problem without logging it`, async () => {
@@ -62,21 +69,20 @@ for (const scenario of cases) {
 }
 
 test("should strip members the response contract does not declare", async () => {
-  const chatService = {
-    getChats: () => [{ id: "1", title: "Stored chat", storagePath: "/private/chats.json" }],
-  } as unknown as ChatControllerDependencies["chatService"];
-  const api = request(createApp({ chatService }, { nodeEnv: NodeEnvironment.Test, corsOrigins: [] }));
-  await api.get("/api/chats/list").expect(200, [{ id: "1", title: "Stored chat" }]);
+  const summary = { id: conversationId, title: "Stored chat", createdAt: "2026-10-26T12:00:00.000Z" };
+  const api = appWith({
+    listConversations: () => [{ ...summary, storagePath: "/private/conversations.json" }],
+  } as unknown as ConversationServiceStub);
+  await api.get("/api/v1/admin/conversations").expect(200, { items: [summary], nextCursor: null });
 });
 
 test("should return an internal error problem when a response breaks its contract", async () => {
-  const chatService = {
-    getChats: () => [{ id: "not-numeric", title: "Stored chat" }],
-  } as unknown as ChatControllerDependencies["chatService"];
+  const api = appWith({
+    listConversations: () => [{ id: "not-a-uuid", title: "Stored chat", createdAt: "yesterday" }],
+  } as unknown as ConversationServiceStub);
   const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
-  const api = request(createApp({ chatService }, { nodeEnv: NodeEnvironment.Test, corsOrigins: [] }));
-  const response = await api.get("/api/chats/list").expect(500);
+  const response = await api.get("/api/v1/admin/conversations").expect(500);
   assert.equal(response.body.code, "INTERNAL_ERROR");
-  assert.doesNotMatch(JSON.stringify(response.body), /not-numeric/);
+  assert.doesNotMatch(JSON.stringify(response.body), /not-a-uuid/);
   assert.equal(errorLog.mock.calls.length, 1);
 });

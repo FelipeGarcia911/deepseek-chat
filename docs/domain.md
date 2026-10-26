@@ -300,12 +300,12 @@ shared Model Profile or ingesting new documents cannot rewrite either Version.
 
 ## Prototype mapping and subsequent work
 
-| Existing prototype name or behavior                          | Domain interpretation                                                   | Follow-up                                                                        |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Backend/frontend `Chat`, `chatId`, `/api/chats`, `/chat/:id` | Legacy Conversation, not Assistant.                                     | Migrate names/contracts incrementally with P1.3–P2.6; no mass rename here.       |
-| `Message.sender: "bot"`                                      | Legacy spelling for assistant-authored content.                         | Decide target transport vocabulary during contract work.                         |
-| JSON chats with title and messages                           | Prototype histories with no Assistant, Workspace or pinned Version.     | Do not claim the new ownership model is already enforced.                        |
-| `503 MODEL_NOT_CONFIGURED`                                   | Deliberately unavailable execution before Model Profiles/Model Gateway. | No new Run, saved question, fallback provider or fabricated answer in this task. |
+| Existing prototype name or behavior           | Domain interpretation                                                   | Follow-up                                                                           |
+| --------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Frontend UI `Chat` components and `/chat/:id` | User-facing label for a Conversation, not Assistant.                    | API, contracts and services use Conversation since P1.5; screens are rebuilt in P4. |
+| `Message.role: "assistant"`                   | Assistant-authored content; replaced `sender: "bot"` in P1.5.           | Done.                                                                               |
+| JSON chats with title and messages            | Prototype histories with no Assistant, Workspace or pinned Version.     | Do not claim the new ownership model is already enforced.                           |
+| `503 MODEL_NOT_CONFIGURED`                    | Deliberately unavailable execution before Model Profiles/Model Gateway. | No new Run, saved question, fallback provider or fabricated answer in this task.    |
 
 P1.1 does not add migrations, entities in `@chat-app/shared`, API DTOs,
 authentication, provider interfaces or new screens. P1.2 defines state machines,

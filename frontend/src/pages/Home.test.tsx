@@ -5,8 +5,8 @@ import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import Home from "./Home";
-import ChatService from "../services/Chat";
-import type { Chat } from "../services/Chat";
+import ChatService from "../services/Conversations";
+import type { Conversation } from "../services/Conversations";
 import chatReducer from "../store/reducers/Chat";
 
 function renderHome() {
@@ -26,11 +26,11 @@ function renderHome() {
 
 describe("conversation creation", () => {
   it("should disable the form while saving, store the chat and navigate on success", async () => {
-    let finish!: (chat: Chat) => void;
-    const pending = new Promise<Chat>((resolve) => {
+    let finish!: (chat: Conversation) => void;
+    const pending = new Promise<Conversation>((resolve) => {
       finish = resolve;
     });
-    const createChat = vi.spyOn(ChatService, "createChat").mockReturnValue(pending);
+    const createChat = vi.spyOn(ChatService, "createConversation").mockReturnValue(pending);
     const user = userEvent.setup();
     const store = renderHome();
 
@@ -42,7 +42,12 @@ describe("conversation creation", () => {
     expect(screen.getByRole("button")).toBeDisabled();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
 
-    const chat: Chat = { id: "test-chat", title: "Test conversation", messages: [] };
+    const chat: Conversation = {
+      id: "test-chat",
+      title: "Test conversation",
+      createdAt: "2026-10-26T12:00:00.000Z",
+      messages: [],
+    };
     finish(chat);
 
     expect(await screen.findByRole("heading", { name: "Created conversation" })).toBeInTheDocument();
@@ -50,7 +55,9 @@ describe("conversation creation", () => {
   });
 
   it("should keep the form usable and create no chat when the service fails", async () => {
-    const createChat = vi.spyOn(ChatService, "createChat").mockRejectedValue(new Error("Synthetic create failure"));
+    const createChat = vi
+      .spyOn(ChatService, "createConversation")
+      .mockRejectedValue(new Error("Synthetic create failure"));
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     const user = userEvent.setup();
     const store = renderHome();
@@ -70,9 +77,12 @@ describe("conversation creation", () => {
 });
 
 it("should ignore blank titles and create a conversation with Enter", async () => {
-  const createChat = vi
-    .spyOn(ChatService, "createChat")
-    .mockResolvedValue({ id: "test-chat", title: "Keyboard chat", messages: [] });
+  const createChat = vi.spyOn(ChatService, "createConversation").mockResolvedValue({
+    id: "test-chat",
+    title: "Keyboard chat",
+    createdAt: "2026-10-26T12:00:00.000Z",
+    messages: [],
+  });
   const user = userEvent.setup();
   renderHome();
   await user.click(screen.getByRole("button", { name: "Crear Chat" }));

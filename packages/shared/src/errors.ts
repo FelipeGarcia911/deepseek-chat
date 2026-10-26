@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Problems use type "about:blank", so RFC 9457 requires the RFC 9110 reason phrase as title; meaning lives in the code.
 export const errorCatalog = {
   VALIDATION_FAILED: { status: 400, title: "Bad Request" },
   UNAUTHENTICATED: { status: 401, title: "Unauthorized" },
@@ -22,7 +21,6 @@ export type ErrorCode = keyof typeof errorCatalog;
 
 export const problemContentType = "application/problem+json";
 
-// Clients must tolerate codes added after they were built, so `code` stays an open string.
 export const ProblemDetails = z.object({
   type: z.string(),
   title: z.string(),
