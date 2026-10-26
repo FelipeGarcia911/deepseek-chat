@@ -46,8 +46,11 @@ in `@chat-app/shared`**. TypeScript types are inferred with `z.infer`; nobody
 writes a parallel interface by hand.
 
 - The backend validates every request (params, query, body, headers it relies on)
-  against the schema before a use case runs, and builds responses typed by the
-  response schema.
+  against the schema before a use case runs, and parses every success response
+  DTO with its response schema before sending it. Parsing strips members the
+  contract does not declare, so internal fields cannot leak, and rejects values
+  the contract cannot represent. A failure is a server bug: it becomes
+  `INTERNAL_ERROR` and is logged, instead of being discovered by the frontend.
 - The frontend parses responses with the same schemas in its HTTP service, so
   an incompatible backend fails loudly in one place instead of deep in the UI.
 - Streaming events (P3.4) are schemas too: a discriminated union on `type`.
@@ -106,10 +109,18 @@ with `Content-Type: application/problem+json` and two extension members:
 a stable `code` and the `requestId` that is also returned in the
 `X-Request-Id` header.
 
+The MVP uses `"type": "about:blank"`, which RFC 9457 defines as "no semantics
+beyond the HTTP status". `title` is therefore the standard
+[RFC 9110 reason phrase](https://www.rfc-editor.org/rfc/rfc9110#section-15) of
+the status (`Bad Request`, `Conflict`), never a problem-specific text. Problem
+meaning lives in `code`; `detail` explains this occurrence. Publishing a
+dereferenceable `type` URI per problem, with its own title, requires amending
+this ADR.
+
 ```json
 {
   "type": "about:blank",
-  "title": "Request validation failed",
+  "title": "Bad Request",
   "status": 400,
   "code": "VALIDATION_FAILED",
   "detail": "The request contains invalid fields.",
@@ -122,12 +133,15 @@ Clients branch on `code`, never on `title` or `detail`. `errors` appears only fo
 validation failures. Stack traces, SQL, provider responses and secrets never
 appear in a problem body. An unknown `code` is handled by its HTTP status class.
 
-Initial code catalog; P1.4 implements it and later tasks extend it:
+Initial code catalog; P1.4 implements it in
+[`packages/shared/src/errors.ts`](../../packages/shared/src/errors.ts) and later
+tasks extend it:
 
 | Code                     | Status | Meaning                                                                        |
 | ------------------------ | ------ | ------------------------------------------------------------------------------ |
 | `VALIDATION_FAILED`      | 400    | Params, query, headers or body do not match the schema.                        |
 | `UNAUTHENTICATED`        | 401    | Admin operation without a valid session (P4.1).                                |
+| `ORIGIN_NOT_ALLOWED`     | 403    | Browser origin is not in `CORS_ORIGINS`; added by P1.4.                        |
 | `NOT_FOUND`              | 404    | Resource is absent or not visible in the caller's scope.                       |
 | `REVISION_CONFLICT`      | 409    | `expectedRevision` or the expected deployment no longer matches current state. |
 | `INVALID_STATE`          | 409    | The lifecycle forbids the command (archived Assistant, closed Conversation).   |
@@ -150,11 +164,27 @@ Initial code catalog; P1.4 implements it and later tasks extend it:
   Conversation and send a Message (which creates a Run) — require an
   `Idempotency-Key` header containing a client-generated UUID, following the
   [IETF Idempotency-Key draft](https://datatracker.ietf.org/doc/draft-ietf-httpapi-idempotency-key-header/).
-  The key is scoped to the caller and operation. A repeat with the same payload
-  returns the original status and body without new work; a different payload
-  returns `IDEMPOTENCY_KEY_REUSED`; a repeat while the first is running returns
+  The draft is not a final RFC, so this ADR states the rules this API enforces.
+  A repeat with the same scope and fingerprint returns the original status and
+  body without new work; the same scope with a different fingerprint returns
+  `IDEMPOTENCY_KEY_REUSED`; a repeat while the first is running returns
   `REQUEST_IN_PROGRESS`. Keys are retained for at least 24 hours. Storage of
   keys belongs to P2.
+- The public runtime may have no authenticated caller, so the scope is defined
+  per operation from server-resolved identities, never from client-supplied
+  scope fields:
+
+  | Operation                 | Idempotency scope                                      |
+  | ------------------------- | ------------------------------------------------------ |
+  | Admin commands (publish)  | Workspace + authenticated actor + operation            |
+  | Start public Conversation | Workspace + Assistant (resolved from slug) + operation |
+  | Send Message              | Workspace + Conversation + operation                   |
+  | Promote and rollback      | Workspace + Assistant + Environment + operation        |
+
+- The fingerprint is the method, the resolved target resource and the
+  schema-normalized request payload. A stored response is returned only when the
+  key **and** the scope match; a key seen under a different scope is a separate
+  key and never replays another scope's response.
 
 ### Pagination
 
