@@ -434,6 +434,8 @@ Still incomplete or only partial:
 
 **General description:** Remove the file store after database parity is proven and decide whether prototype data needs migration.
 
+**Implementation:** The cutover happened in P2.4 without dual writes: the JSON service, `CHAT_STORAGE_PATH`, its validation and examples were removed, and prototype data is declared disposable in [ADR-003](adr/003-use-kysely-with-sql-first-migrations.md#prototype-data). P2.6 removed the last ignore entry for `backend/data/` and verified the compiled API against PostgreSQL: liveness, readiness, an empty conversation page, a `NOT_FOUND` problem for an unknown Assistant, and a shutdown that closes HTTP and then the database pool. Local `.env` files with obsolete variables are ignored by configuration but should be refreshed from `backend/.env.example`.
+
 **Acceptance criteria:**
 
 - The application has one authoritative storage path.
@@ -445,6 +447,8 @@ Still incomplete or only partial:
 **Suggested commit:** `refactor(storage): retire file based persistence`
 
 **Phase 2 exit gate:** The current chat behavior works against PostgreSQL, and the new release-domain invariants are covered by integration tests.
+
+**Exit gate status (October 27, 2026):** met. Conversations, messages and runs persist only in PostgreSQL behind repositories and application services; `release-model.test.ts`, `conversations.test.ts` and `conversation-repository.test.ts` prove ownership, immutability, one active Deployment, Production pinning, run transitions, one response per succeeded Run and concurrent admission/completion against real PostgreSQL. CI rebuilds the schema from migrations and checks generated types on every push.
 
 ---
 
