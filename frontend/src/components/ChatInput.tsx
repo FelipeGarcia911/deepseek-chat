@@ -4,9 +4,11 @@ import { useState } from "react";
 
 interface ChatInputProps {
   sendMessage: (input: string) => void;
+  sending?: boolean;
+  onStop?: () => void;
 }
 
-const ChatInput = ({ sendMessage }: ChatInputProps) => {
+const ChatInput = ({ sendMessage, sending = false, onStop }: ChatInputProps) => {
   const [input, setInput] = useState<string>("");
 
   const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -21,7 +23,7 @@ const ChatInput = ({ sendMessage }: ChatInputProps) => {
   };
 
   const onSend = () => {
-    if (input.trim() !== "") {
+    if (!sending && input.trim() !== "") {
       sendMessage(input);
       setInput("");
     }
@@ -37,9 +39,15 @@ const ChatInput = ({ sendMessage }: ChatInputProps) => {
         onKeyDown={handleKeyPress}
         placeholder="Escribe un mensaje..."
       />
-      <Button variant="contained" onClick={onSend} endIcon={<SendIcon />}>
-        Enviar
-      </Button>
+      {sending ? (
+        <Button variant="outlined" color="error" onClick={onStop}>
+          Detener
+        </Button>
+      ) : (
+        <Button variant="contained" onClick={onSend} endIcon={<SendIcon />}>
+          Enviar
+        </Button>
+      )}
     </Box>
   );
 };

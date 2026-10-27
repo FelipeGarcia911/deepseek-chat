@@ -50,4 +50,17 @@ describe("ChatInput", () => {
     expect(sendMessage).not.toHaveBeenCalled();
     expect(screen.getByRole("textbox")).toHaveValue("Draft question");
   });
+  it("should offer to stop instead of sending while a response is streaming", async () => {
+    const sendMessage = vi.fn();
+    const onStop = vi.fn();
+    const user = userEvent.setup();
+    render(<ChatInput sendMessage={sendMessage} sending onStop={onStop} />);
+
+    await user.type(screen.getByRole("textbox"), "Too early{Enter}");
+    await user.click(screen.getByRole("button", { name: "Detener" }));
+
+    expect(screen.queryByRole("button", { name: "Enviar" })).toBeNull();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(onStop).toHaveBeenCalledOnce();
+  });
 });

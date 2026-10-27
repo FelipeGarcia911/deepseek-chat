@@ -1,5 +1,5 @@
 import { Box, Paper, Typography } from "@mui/material";
-import type { Message } from "../services/Conversations";
+import type { Message } from "@/services/Conversations";
 import { useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,14 +8,19 @@ import ChatSkeleton from "./ChatSkeleton";
 interface ChatWindowProps {
   messages?: Message[];
   loading: boolean;
+  streamingText?: string;
 }
 
-const ChatWindow = ({ messages, loading }: ChatWindowProps) => {
+const ChatWindow = ({ messages = [], loading, streamingText = "" }: ChatWindowProps) => {
+  const shown: Message[] = streamingText
+    ? [...messages, { id: "streaming", role: "assistant", content: streamingText, createdAt: "" }]
+    : messages;
+
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, streamingText]);
 
   return (
     <Paper
@@ -31,7 +36,7 @@ const ChatWindow = ({ messages, loading }: ChatWindowProps) => {
         gap: 1,
       }}
     >
-      {messages?.map((msg) => (
+      {shown.map((msg) => (
         <Box
           key={msg.id}
           sx={{
@@ -59,7 +64,7 @@ const ChatWindow = ({ messages, loading }: ChatWindowProps) => {
         </Box>
       ))}
 
-      {loading && <ChatSkeleton />}
+      {loading && !streamingText && <ChatSkeleton />}
 
       <div ref={chatEndRef} />
     </Paper>

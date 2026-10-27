@@ -39,6 +39,32 @@ export function handle(handler: (req: Request, res: Response) => Promise<void>):
   };
 }
 
+export function abortOnClose(res: Response): AbortSignal {
+  const abort = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) abort.abort();
+  });
+  return abort.signal;
+}
+
+export async function writeEventStream<T extends { type: string }>(
+  res: Response,
+  events: AsyncIterable<T>,
+  schema: Schema<T>
+): Promise<void> {
+  res.status(200).set({ "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "X-Accel-Buffering": "no" });
+  res.flushHeaders();
+  try {
+    for await (const event of events) {
+      const checked = parse(schema, event, "body");
+      res.write(`event: ${checked.type}\ndata: ${JSON.stringify(checked)}\n\n`);
+    }
+  } catch (error) {
+    console.error(`Request ${res.locals.requestId} failed while streaming:`, error);
+  }
+  res.end();
+}
+
 export const notFound: RequestHandler = (_req, res) => {
   sendProblem(res, "NOT_FOUND", "No route matches this request.");
 };

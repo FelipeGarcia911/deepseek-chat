@@ -2,8 +2,8 @@ import { ListItem, ListItemText, IconButton } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { AppDispatch } from "../../store";
-import { deleteChat } from "../../store/reducers/Chat";
+import { AppDispatch } from "@/store";
+import { deleteChat } from "@/store/reducers/Chat";
 
 interface ChatListItemProps {
   chat: { id: string; title: string };

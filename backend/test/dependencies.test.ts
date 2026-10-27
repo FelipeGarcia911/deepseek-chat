@@ -4,7 +4,7 @@ import { test, vi } from "vitest";
 import { createApp, type AppDependencies } from "../src/app";
 import { NodeEnvironment } from "../src/config";
 import type { ConversationControllerDependencies } from "../src/controllers/ConversationController";
-import type { ConversationSummary } from "@chat-app/shared";
+import type { ConversationSummary, MessageStreamEvent } from "@chat-app/shared";
 import { AppError } from "../src/errors";
 
 type ConversationServiceStub = ConversationControllerDependencies["conversationService"];
@@ -15,17 +15,25 @@ const cases = [
   { method: "listConversations", verb: "get", route: "/admin/conversations" },
   { method: "createConversation", verb: "post", route: "/runtime/assistants/support/conversations" },
   { method: "listMessages", verb: "get", route: `/runtime/conversations/${conversationId}/messages` },
-  { method: "sendMessage", verb: "post", route: `/runtime/conversations/${conversationId}/messages` },
   { method: "deleteConversation", verb: "delete", route: `/admin/conversations/${conversationId}` },
 ] as const;
 
+type ChatRuntimeStub = AppDependencies["chatRuntime"];
+
+const unusedRuntime: ChatRuntimeStub = {
+  sendMessage: async () => {
+    throw new Error("Unexpected runtime operation");
+  },
+};
+
 function appWith(
   conversationService: ConversationServiceStub,
-  checkReadiness: AppDependencies["healthService"]["checkReadiness"] = async () => ({ ready: true })
+  checkReadiness: AppDependencies["healthService"]["checkReadiness"] = async () => ({ ready: true }),
+  chatRuntime: ChatRuntimeStub = unusedRuntime
 ) {
   return request(
     createApp(
-      { conversationService, healthService: { checkReadiness } },
+      { conversationService, chatRuntime, healthService: { checkReadiness } },
       { nodeEnv: NodeEnvironment.Test, corsOrigins: [] }
     )
   );
@@ -39,7 +47,6 @@ function serviceStub(overrides: Partial<ConversationServiceStub> = {}): Conversa
     listConversations: async () => emptyPage,
     createConversation: unexpected,
     listMessages: unexpected,
-    sendMessage: unexpected,
     deleteConversation: unexpected,
     ...overrides,
   };
@@ -52,7 +59,6 @@ function createTestApp(method: (typeof cases)[number]["method"], failure: () => 
 
 function call(api: ReturnType<typeof request>, scenario: (typeof cases)[number]) {
   const operation = api[scenario.verb](`/api/v1${scenario.route}`);
-  if (scenario.method === "sendMessage") return operation.send({ content: "Synthetic question" });
   return scenario.verb === "post" ? operation.send({ title: "Test chat" }) : operation;
 }
 
@@ -130,4 +136,29 @@ test("should report readiness separately from liveness", async () => {
     .expect(503);
   assert.equal(response.body.code, "DEPENDENCY_UNAVAILABLE");
   assert.equal(response.body.detail, "The database is unreachable.");
+});
+
+test("should end the event stream and log when the runtime fails after it started", async () => {
+  const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
+  async function* failing(): AsyncGenerator<MessageStreamEvent> {
+    yield { type: "delta", text: "Partial" };
+    throw new Error("Synthetic finalization failure");
+  }
+  const api = appWith(serviceStub(), undefined, { sendMessage: async () => failing() });
+  const response = await api.post(`/api/v1/runtime/conversations/${conversationId}/messages`).send({ content: "Hi" });
+  assert.equal(response.status, 200);
+  assert.match(response.headers["content-type"], /^text\/event-stream/);
+  assert.equal(response.text, 'event: delta\ndata: {"type":"delta","text":"Partial"}\n\n');
+  assert.equal(errorLog.mock.calls.length, 1);
+});
+
+test("should answer admission failures as problems before any event is streamed", async () => {
+  const api = appWith(serviceStub(), undefined, {
+    sendMessage: async () => {
+      throw new AppError("RUN_IN_PROGRESS", "A run is already active.");
+    },
+  });
+  const response = await api.post(`/api/v1/runtime/conversations/${conversationId}/messages`).send({ content: "Hi" });
+  assert.equal(response.status, 409);
+  assert.equal(response.body.code, "RUN_IN_PROGRESS");
 });

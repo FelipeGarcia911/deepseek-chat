@@ -5,9 +5,9 @@ import { Provider } from "react-redux";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import Home from "./Home";
-import ChatService from "../services/Conversations";
-import type { Conversation } from "../services/Conversations";
-import chatReducer from "../store/reducers/Chat";
+import ChatService from "@/services/Conversations";
+import type { Conversation } from "@/services/Conversations";
+import chatReducer from "@/store/reducers/Chat";
 
 function renderHome() {
   const store = configureStore({ reducer: { chat: chatReducer } });

@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders, type AxiosResponse } from "axios";
 import { expect, it } from "vitest";
-import { ApiError, send, toApiError } from "../src/services/ApiError";
+import { ApiError, send, toApiError } from "@/services/ApiError";
 
 function axiosErrorWith(data: unknown, status = 400) {
   const config = { headers: new AxiosHeaders() };

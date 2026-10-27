@@ -92,6 +92,18 @@ deliberately discarded, so hidden reasoning never reaches Runs. Persisted Model 
 adapter for a profile belong to P4.4 (and P3.7 once a second provider exists);
 until then use cases receive a `ChatModel` and never branch on a provider name.
 
+### Runtime resolution
+
+`ChatRuntimeService` (in `backend/src/runtime`) orchestrates execution and owns
+the `RunModelResolver` port: `resolve(conversationId)` returns the `ChatModel`
+for a conversation's pinned target. It is keyed by conversation rather than
+Run because the model is fully determined by the pinned target and must be
+known before admission: `MODEL_NOT_CONFIGURED` is an admission rejection that
+stores no question and creates no Run. Tests inject resolvers returning fakes or
+Ollama; the normal composition uses `unconfiguredModelResolver`. P4.4 replaces
+only the resolver implementation (target, persisted Model Profile, provider
+registry); use cases and the runtime stay unchanged.
+
 ## Consequences
 
 Switching or adding a provider means one adapter plus a passing contract suite;

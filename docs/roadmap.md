@@ -511,6 +511,8 @@ Still incomplete or only partial:
 
 **General description:** Stream generation events from the provider through the API to the React client and propagate disconnects upstream.
 
+**Implementation:** `ChatRuntimeService` orchestrates a message: admission (open conversation, model from the application-owned `RunModelResolver`, one active Run), then `accepted`, provider `delta`s, and a `completed` or `failed` event. Success commits the single response through `completeRun`; empty output or a stream without a result is an invalid response; provider failures fail the Run, timeouts expire it and aborts cancel it, always discarding partial text. The controller only parses input, ties the request signal to the connection (`abortOnClose`) and writes validated server-sent events (`writeEventStream`). The React client reads the stream with `fetch`, shows the question once accepted, renders deltas as they arrive, replaces them with the confirmed answer and offers a stop button that aborts the request. The normal composition keeps `unconfiguredModelResolver`, so the UI answers `MODEL_NOT_CONFIGURED` until P4.4. See [message streaming](api-surfaces.md#message-streaming).
+
 **Acceptance criteria:**
 
 - Text appears incrementally in the public and Playground chats.

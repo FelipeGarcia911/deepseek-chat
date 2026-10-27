@@ -32,10 +32,10 @@ export interface ChatRequest {
   signal?: AbortSignal;
 }
 
-export interface Usage {
+export type Usage = {
   inputTokens?: number;
   outputTokens?: number;
-}
+};
 
 export interface ModelIdentity {
   provider: string;

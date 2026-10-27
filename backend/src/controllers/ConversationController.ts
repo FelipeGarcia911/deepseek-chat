@@ -8,16 +8,18 @@ import {
   MessagePage,
   PageQuery,
   SendMessageRequest,
-  SendMessageResponse,
+  MessageStreamEvent,
 } from "@chat-app/shared";
-import { parse } from "../http";
+import { abortOnClose, parse, writeEventStream } from "../http";
+import type ChatRuntimeService from "../runtime/ChatRuntimeService";
 import type ConversationService from "../services/ConversationService";
 
 export interface ConversationControllerDependencies {
   conversationService: Pick<
     ConversationService,
-    "listConversations" | "createConversation" | "listMessages" | "sendMessage" | "deleteConversation"
+    "listConversations" | "createConversation" | "listMessages" | "deleteConversation"
   >;
+  chatRuntime: Pick<ChatRuntimeService, "sendMessage">;
 }
 
 class ConversationController {
@@ -44,8 +46,8 @@ class ConversationController {
   sendMessage = async (req: Request, res: Response): Promise<void> => {
     const { conversationId } = parse(ConversationParams, req.params, "params");
     const { content } = parse(SendMessageRequest, req.body, "body");
-    const response = await this.dependencies.conversationService.sendMessage(conversationId, content);
-    res.status(201).json(SendMessageResponse.parse(response));
+    const events = await this.dependencies.chatRuntime.sendMessage(conversationId, content, abortOnClose(res));
+    await writeEventStream(res, events, MessageStreamEvent);
   };
 
   deleteConversation = async (req: Request, res: Response): Promise<void> => {

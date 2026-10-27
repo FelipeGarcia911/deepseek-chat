@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
-import { v4 as uuid } from "uuid";
-import ConversationService, { type Conversation } from "../../services/Conversations";
+import ConversationService, { type Conversation, type Message } from "@/services/Conversations";
+import { consumeMessageStream } from "@/services/messageStream";
 
 export const fetchChats = createAsyncThunk("chat/fetchChats", async () => {
   return await ConversationService.listConversations();
@@ -25,10 +25,11 @@ export const deleteChat = createAsyncThunk("chat/deleteChat", async (chatId: str
 
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ chatId, message }: { chatId: string; message: string }, { dispatch }) => {
-    dispatch(addUserMessage({ chatId, message }));
-    const response = await ConversationService.sendMessage(chatId, message);
-
+  async ({ chatId, message }: { chatId: string; message: string }, { dispatch, signal }) => {
+    const response = await consumeMessageStream(ConversationService.sendMessage(chatId, message, signal), {
+      onAccepted: (accepted) => dispatch(messageAccepted({ chatId, message: accepted })),
+      onDelta: (text) => dispatch(deltaReceived(text)),
+    });
     return { chatId, response };
   }
 );
@@ -37,24 +38,25 @@ interface ChatState {
   chats: Conversation[];
   isLoadingChats: boolean;
   isSendingMessage: boolean;
+  streaming: { chatId: string; text: string } | null;
 }
 
 const initialState: ChatState = {
   chats: [],
   isLoadingChats: false,
   isSendingMessage: false,
+  streaming: null,
 };
 
 const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
-    addUserMessage: (state, action: PayloadAction<{ chatId: string; message: string }>) => {
-      const { chatId, message } = action.payload;
-      const chat = state.chats.find((c) => c.id === chatId);
-      if (chat) {
-        chat.messages.push({ id: uuid(), role: "user", content: message, createdAt: new Date().toISOString() });
-      }
+    messageAccepted: (state, action: PayloadAction<{ chatId: string; message: Message }>) => {
+      state.chats.find((chat) => chat.id === action.payload.chatId)?.messages.push(action.payload.message);
+    },
+    deltaReceived: (state, action: PayloadAction<string>) => {
+      if (state.streaming) state.streaming.text += action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -94,11 +96,13 @@ const chatSlice = createSlice({
       })
 
       // SendMessage
-      .addCase(sendMessage.pending, (state) => {
+      .addCase(sendMessage.pending, (state, action) => {
         state.isSendingMessage = true;
+        state.streaming = { chatId: action.meta.arg.chatId, text: "" };
       })
       .addCase(sendMessage.rejected, (state) => {
         state.isSendingMessage = false;
+        state.streaming = null;
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const { chatId, response } = action.payload;
@@ -107,10 +111,11 @@ const chatSlice = createSlice({
           chat.messages.push(response);
         }
         state.isSendingMessage = false;
+        state.streaming = null;
       });
   },
 });
 
-export const { addUserMessage } = chatSlice.actions;
+export const { messageAccepted, deltaReceived } = chatSlice.actions;
 
 export default chatSlice.reducer;

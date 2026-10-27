@@ -1,5 +1,6 @@
 import type { ConversationSummary, Message, PageQuery } from "@chat-app/shared";
 import { AppError } from "../errors";
+import type { Usage } from "../models/gateway";
 import {
   assemblePrompt,
   type AssembledPrompt,
@@ -26,7 +27,7 @@ export interface RunChanges {
   finishedAt?: Date;
   provider?: string;
   model?: string;
-  usage?: Record<string, number> | null;
+  usage?: Usage | null;
   errorCode?: string | null;
   errorMessage?: string | null;
   promptTrace?: PromptTrace;
@@ -131,9 +132,8 @@ class ConversationService {
     if (!(await this.store.deleteConversation(conversationId))) throw conversationNotFound();
   }
 
-  async sendMessage(conversationId: string, _content: string): Promise<Message> {
-    requireOpen(await this.store.findConversation(conversationId));
-    throw new AppError("MODEL_NOT_CONFIGURED", "No Model Profile has been configured.");
+  async requireOpenConversation(conversationId: string): Promise<ConversationSummary> {
+    return requireOpen(await this.store.findConversation(conversationId));
   }
 
   async acceptUserMessage(conversationId: string, content: string): Promise<{ message: Message; runId: string }> {
@@ -175,7 +175,7 @@ class ConversationService {
     if (!started) throw new AppError("INVALID_STATE", "The run is not waiting to start.");
   }
 
-  async completeRun(runId: string, result: { content: string; usage?: Record<string, number> }): Promise<Message> {
+  async completeRun(runId: string, result: { content: string; usage?: Usage }): Promise<Message> {
     return this.dependencies.transaction(async (store) => {
       const owner = await store.findRun(runId);
       const conversation = owner && (await store.lockConversation(owner.conversationId));

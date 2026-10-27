@@ -62,4 +62,15 @@ export const SendMessageRequest = z.strictObject({
 });
 export type SendMessageRequest = z.infer<typeof SendMessageRequest>;
 
-export const SendMessageResponse = Message;
+export const MessageStreamEvent = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("accepted"), runId: ResourceId, message: Message }),
+  z.object({ type: z.literal("delta"), text: z.string() }),
+  z.object({ type: z.literal("completed"), message: Message }),
+  z.object({
+    type: z.literal("failed"),
+    runStatus: z.enum(["failed", "cancelled", "expired"]),
+    code: z.string(),
+    detail: z.string(),
+  }),
+]);
+export type MessageStreamEvent = z.infer<typeof MessageStreamEvent>;

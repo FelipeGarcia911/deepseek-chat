@@ -3,13 +3,14 @@ import {
   ConversationPage,
   ConversationSummary,
   MessagePage,
-  SendMessageResponse,
+  MessageStreamEvent,
   pageLimitMax,
   type Message,
 } from "@chat-app/shared";
 
-import { config } from "../config";
+import { config } from "@/config";
 import { send } from "./ApiError";
+import { readEventStream } from "./eventStream";
 
 export type { Message };
 
@@ -60,9 +61,18 @@ class ConversationService {
     return this.readAll(`${this.runtimeUrl}/${conversationId}/messages`, MessagePage);
   }
 
-  async sendMessage(conversationId: string, content: string): Promise<Message> {
-    const response = await send(axios.post(`${this.runtimeUrl}/${conversationId}/messages`, { content }));
-    return SendMessageResponse.parse(response.data);
+  async *sendMessage(
+    conversationId: string,
+    content: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<MessageStreamEvent> {
+    const response = await fetch(`${this.runtimeUrl}/${conversationId}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify({ content }),
+      signal,
+    });
+    yield* readEventStream(response, MessageStreamEvent);
   }
 }
 

@@ -33,4 +33,10 @@ describe("ChatWindow", () => {
 
     expect(screen.queryByRole("status", { name: "Generating response" })).not.toBeInTheDocument();
   });
+  it("should show streamed text as a growing assistant answer instead of the loading indicator", () => {
+    render(<ChatWindow messages={[]} loading streamingText="**Partial** answer" />);
+
+    expect(screen.getByText("Partial")).toBeVisible();
+    expect(screen.queryByRole("status", { name: "Generating response" })).not.toBeInTheDocument();
+  });
 });

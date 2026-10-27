@@ -6,6 +6,10 @@ Write code, test names and documentation in English.
 
 - Do not use type assertions in production code or tests: no `as Type`, `as unknown as`, or non-null `!`. Parse untrusted input with the shared schemas, narrow with type guards (`instanceof`, `in`, `typeof`, `assert.ok`), or build complete typed fakes. `as const` is allowed.
 
+## Imports
+
+- In the frontend, import application modules through the `@/` alias (`@/services/Conversations`), never with parent-relative paths such as `../../`. Same-directory `./` imports are fine. The alias is configured in `vite.config.ts`, `vitest.config.ts` and `tsconfig.app.json`.
+
 ## Tests
 
 - Do not add comments to test files or test setup. Express intent through descriptive names and readable assertions. Put explanations in `docs/testing.md`.

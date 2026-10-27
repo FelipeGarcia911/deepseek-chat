@@ -5,6 +5,7 @@ import {
   ConversationParams,
   CreateConversationRequest,
   MessagePage,
+  MessageStreamEvent,
   PageQuery,
   ProblemDetails,
   SendMessageRequest,
@@ -66,6 +67,24 @@ describe("conversation contracts", () => {
     expect(MessagePage.safeParse({ items: [{ ...message, role: "bot" }], nextCursor: null }).success).toBe(false);
     expect(MessagePage.safeParse({ items: [{ text: "Hi", sender: "user" }], nextCursor: null }).success).toBe(false);
     expect(ConversationPage.safeParse([summary]).success).toBe(false);
+  });
+});
+
+describe("message stream contracts", () => {
+  it("should accept each stream event and reject unknown events or run states", () => {
+    const message = { id, role: "assistant", content: "Hi", createdAt };
+    for (const event of [
+      { type: "accepted", runId: id, message: { ...message, role: "user" } },
+      { type: "delta", text: "H" },
+      { type: "completed", message },
+      { type: "failed", runStatus: "expired", code: "timeout", detail: "Too slow." },
+    ]) {
+      expect(MessageStreamEvent.parse(event)).toEqual(event);
+    }
+    expect(MessageStreamEvent.safeParse({ type: "token", text: "H" }).success).toBe(false);
+    expect(
+      MessageStreamEvent.safeParse({ type: "failed", runStatus: "succeeded", code: "x", detail: "y" }).success
+    ).toBe(false);
   });
 });
 

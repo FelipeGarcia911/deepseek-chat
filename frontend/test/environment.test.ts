@@ -8,9 +8,8 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import axios from "axios";
 import { ProblemDetails } from "@chat-app/shared";
-import { parseFrontendConfig } from "../src/config/schema";
+import { parseFrontendConfig } from "@/config/schema";
 import { fileURLToPath } from "node:url";
 import { build, createServer as createViteServer } from "vite";
 
@@ -86,18 +85,16 @@ test("should use the configured origin and API path prefix", async (t) => {
     { id: conversationId, assistantId: conversationId, title: "Test chat", status: "open", createdAt, messages: [] },
   ]);
   assert.deepEqual(paths, ["/platform/api/v1/admin/conversations?limit=100"]);
-  await assert.rejects(service.sendMessage(conversationId, "Synthetic question"), (error) => {
+  await assert.rejects(service.sendMessage(conversationId, "Synthetic question").next(), (error) => {
     assert.ok(error instanceof Error);
     assert.equal(error.name, "ApiError");
     assert.equal(error.message, "No Model Profile has been configured.");
-    assert.ok("problem" in error && "cause" in error);
+    assert.ok("problem" in error);
     const problem = ProblemDetails.parse(error.problem);
-    const { cause } = error;
     assert.deepEqual(
       [problem.status, problem.code, problem.requestId],
       [503, "MODEL_NOT_CONFIGURED", "synthetic-request-id"]
     );
-    assert.ok(axios.isAxiosError(cause));
     return true;
   });
   assert.deepEqual(paths, [

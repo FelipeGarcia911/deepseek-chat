@@ -25,7 +25,7 @@ identifiers are UUIDs, collections are `{ items, nextCursor }` pages with
 | `DELETE` | `/api/v1/admin/conversations/{conversationId}`             | 204                                                                                    |
 | `POST`   | `/api/v1/runtime/assistants/{assistantSlug}/conversations` | 201, summary pinned to the Production version; 404 unknown, 409 archived or undeployed |
 | `GET`    | `/api/v1/runtime/conversations/{conversationId}/messages`  | 200, page, oldest first                                                                |
-| `POST`   | `/api/v1/runtime/conversations/{conversationId}/messages`  | assistant `Message`; 503 until P3                                                      |
+| `POST`   | `/api/v1/runtime/conversations/{conversationId}/messages`  | `text/event-stream`; problems before the stream starts                                 |
 
 Listing every conversation and deleting history are operator actions, so they
 live in the control plane. A runtime caller only acts on a conversation it
@@ -62,3 +62,24 @@ for its group's authentication and limits.
 CORS is shared: both groups are called by the one React application, so both
 accept the configured `CORS_ORIGINS`. Embedding the runtime on third-party
 sites is not an MVP goal.
+
+## Message streaming
+
+`POST /api/v1/runtime/conversations/{conversationId}/messages` validates the
+request, then runs admission: the conversation must exist and be open, a
+streaming-capable model must resolve for it, and no other Run may be active.
+Admission failures answer with problem details (`NOT_FOUND`, `INVALID_STATE`,
+`MODEL_NOT_CONFIGURED`, `RUN_IN_PROGRESS`) and write nothing. After admission the
+response is `text/event-stream`; each event is `event: <type>` plus a `data:`
+line validated by `MessageStreamEvent` in `@chat-app/shared`:
+
+| Event       | Data                                                             | Meaning                                                      |
+| ----------- | ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| `accepted`  | `runId`, the persisted user `message`                            | The question is stored and a Run was created.                |
+| `delta`     | `text`                                                           | Provisional output; never stored on its own.                 |
+| `completed` | the persisted assistant `message`                                | The Run succeeded and its single response is committed.      |
+| `failed`    | `runStatus` (`failed`, `cancelled`, `expired`), `code`, `detail` | The Run ended without a response; partial text is discarded. |
+
+Closing the connection aborts the model request and cancels the Run. Until
+P4.4 provides persisted Model Profiles, the normal composition resolves no
+model, so this endpoint answers `MODEL_NOT_CONFIGURED`.

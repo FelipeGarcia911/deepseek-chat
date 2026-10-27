@@ -36,6 +36,7 @@ export class FakeChatModel implements ChatModel {
       capabilities?: Partial<ChatCapabilities>;
       reply?: (request: ChatRequest) => string | ModelError;
       failStream?: { afterDeltas: number; error: ModelError };
+      holdAfterDeltas?: number;
     } = {}
   ) {
     this.capabilities = { ...allCapabilities, ...options.capabilities };
@@ -73,6 +74,9 @@ export class FakeChatModel implements ChatModel {
     const result = this.respond(request);
     const failure = this.options.failStream;
     for (const [index, word] of words(result.content).entries()) {
+      if (index === this.options.holdAfterDeltas && !request.signal?.aborted) {
+        await new Promise((resolve) => request.signal?.addEventListener("abort", resolve, { once: true }));
+      }
       throwIfAborted(request.signal);
       if (failure && index === failure.afterDeltas) throw failure.error;
       yield { type: "delta", text: index === 0 ? word : ` ${word}` };

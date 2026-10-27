@@ -51,16 +51,16 @@ describe("conversation rules", () => {
     expect(insertConversation).not.toHaveBeenCalled();
   });
 
-  it("should check that a conversation exists and is open before reporting the missing model", async () => {
+  it("should require an existing open conversation before a message can be sent", async () => {
     const findConversation = vi
       .fn<ConversationStore["findConversation"]>()
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({ ...open, status: "closed" })
       .mockResolvedValueOnce(open);
     const service = serviceWith({ findConversation });
-    for (const code of ["NOT_FOUND", "INVALID_STATE", "MODEL_NOT_CONFIGURED"]) {
-      await expect(service.sendMessage(id, "Question")).rejects.toMatchObject({ code });
-    }
+    await expect(service.requireOpenConversation(id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(service.requireOpenConversation(id)).rejects.toMatchObject({ code: "INVALID_STATE" });
+    await expect(service.requireOpenConversation(id)).resolves.toEqual(open);
   });
 
   it("should reject a second run while one is active without writing a message", async () => {

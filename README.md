@@ -13,7 +13,9 @@ Assistant at `/c/<assistantSlug>` and pinned to its current Production version;
 until the administration screens exist (P4/P5), no Assistant is published by
 default, so creation answers 404 for unknown slugs. Generation is
 intentionally unavailable until Model Profiles and model-gateway contracts
-are implemented. Sending a message returns:
+are implemented. Sending a message streams server-sent events once a model is
+resolved (see [API surfaces](docs/api-surfaces.md#message-streaming)); until
+Model Profiles exist (P4.4) the API has no model and returns:
 
 ```json
 {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { parseFrontendConfig } from "../src/config/schema.ts";
+import { parseFrontendConfig } from "@/config/schema.ts";
 
 test("should preserve custom origins and path prefixes while removing trailing slashes", () => {
   const config = parseFrontendConfig({ VITE_API_BASE_URL: " https://gateway.example.test/platform/api/// " });

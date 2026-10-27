@@ -2,8 +2,8 @@ import { Box, TextField, Button, Typography, CircularProgress } from "@mui/mater
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppDispatch } from "../store";
-import { createChat } from "../store/reducers/Chat";
+import { AppDispatch } from "@/store";
+import { createChat } from "@/store/reducers/Chat";
 
 const CreateConversation = ({ assistantSlug }: { assistantSlug: string }) => {
   const [chatName, setChatName] = useState("");

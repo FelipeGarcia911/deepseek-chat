@@ -138,6 +138,13 @@ To also check a real Ollama, set `OLLAMA_CONTRACT_BASE_URL` to its API root
 `OLLAMA_CONTRACT_MODEL`, default `llama3.2`) when running the backend tests;
 without it the live suite is not registered.
 
+`chat-runtime.test.ts` runs the runtime against real PostgreSQL with resolvers
+that return deterministic models: success with usage and prompt trace, failure
+after partial output, timeout, unexpected errors, empty or incomplete streams,
+caller cancellation, admission rejections that write nothing, server-sent events
+over HTTP and a real client disconnect that cancels the Run. The fake chat model's
+`holdAfterDeltas` waits for the abort signal instead of sleeping.
+
 Tests follow the repository rule against type assertions: invalid values for
 `CHECK` constraints are inserted with raw SQL, Node addresses are narrowed with
 `assert.ok`, and fakes implement every method instead of being cast.

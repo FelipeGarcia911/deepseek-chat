@@ -4,15 +4,18 @@ import { createDatabase } from "./db/database";
 import { ConversationRepository, createUnitOfWork } from "./repositories/ConversationRepository";
 import ConversationService from "./services/ConversationService";
 import HealthService from "./services/HealthService";
+import ChatRuntimeService, { unconfiguredModelResolver } from "./runtime/ChatRuntimeService";
 
 export function createApplication(config: AppConfig) {
   const db = createDatabase(config.databaseUrl);
+  const conversationService = new ConversationService({
+    store: new ConversationRepository(db),
+    transaction: createUnitOfWork(db),
+  });
   const app = createApp(
     {
-      conversationService: new ConversationService({
-        store: new ConversationRepository(db),
-        transaction: createUnitOfWork(db),
-      }),
+      conversationService,
+      chatRuntime: new ChatRuntimeService({ conversations: conversationService, models: unconfiguredModelResolver }),
       healthService: new HealthService(db),
     },
     { nodeEnv: config.nodeEnv, corsOrigins: config.corsOrigins }
