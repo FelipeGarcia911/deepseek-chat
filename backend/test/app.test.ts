@@ -21,7 +21,8 @@ async function fixture(t: TestContext, origins = "https://allowed.example.test",
     CHAT_STORAGE_PATH: storagePath,
     DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
   });
-  const app = await createApplication(config);
+  const { app, close } = await createApplication(config);
+  t.onTestFinished(close);
   await writeFile(storagePath, "[]");
   return { app, config, storagePath, api: request(app) };
 }
@@ -237,7 +238,9 @@ test("should report the composed application as not ready until its database is 
     DATABASE_URL: url,
   });
   vi.spyOn(console, "warn").mockImplementation(() => {});
-  const response = await request(await createApplication(config)).get("/health/ready");
+  const { app, close } = await createApplication(config);
+  t.onTestFinished(close);
+  const response = await request(app).get("/health/ready");
   assertProblem(response, 503, "DEPENDENCY_UNAVAILABLE");
   assert.equal(response.body.detail, "The database has 1 pending migration(s).");
 });

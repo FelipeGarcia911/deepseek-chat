@@ -17,8 +17,8 @@ export async function runDatabaseCommand(
   if (!isDatabaseUrl(databaseUrl)) {
     throw new Error("DATABASE_URL: must be a postgres:// or postgresql:// URL with a host and database name.");
   }
-  if (command === "reset" && environment.NODE_ENV === "production") {
-    throw new Error("db reset is disabled when NODE_ENV is production.");
+  if (command === "reset" && !["development", "test"].includes(environment.NODE_ENV ?? "")) {
+    throw new Error("db reset is allowed only when NODE_ENV is development or test.");
   }
 
   const db = createDatabase(databaseUrl);

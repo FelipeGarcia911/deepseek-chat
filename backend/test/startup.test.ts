@@ -13,6 +13,8 @@ let originalTerm: ((signal: "SIGTERM") => void)[];
 let originalInt: ((signal: "SIGINT") => void)[];
 const originalExitCode = process.exitCode;
 
+let closeApplication: ReturnType<typeof vi.fn<() => Promise<void>>>;
+
 beforeEach(() => {
   originalTerm = process.listeners("SIGTERM");
   originalInt = process.listeners("SIGINT");
@@ -27,7 +29,8 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   server = createServer();
   vi.spyOn(application, "listen").mockReturnValue(server);
-  vi.mocked(createApplication).mockResolvedValue(application);
+  closeApplication = vi.fn(async () => {});
+  vi.mocked(createApplication).mockResolvedValue({ app: application, close: closeApplication });
 });
 
 afterEach(() => {
@@ -61,24 +64,32 @@ it.each(["SIGTERM", "SIGINT"] as const)("should close once and remove shutdown r
   signal(name);
   signal(name);
   expect(close).toHaveBeenCalledOnce();
-  finish!();
+  expect(closeApplication).not.toHaveBeenCalled();
+  await finish!();
+  expect(closeApplication).toHaveBeenCalledOnce();
+  expect(console.log).toHaveBeenCalledWith("Database connections closed");
   expect(process.listeners(name)).toEqual(name === "SIGTERM" ? originalTerm : originalInt);
   expect(vi.getTimerCount()).toBe(0);
 });
 
-it("should log the actual listening port and report a close failure", async () => {
+it("should log the actual listening port and report HTTP and database close failures", async () => {
   vi.spyOn(server, "address").mockReturnValue({ port: 4500, address: "127.0.0.1", family: "IPv4" });
+  let finish: ((error?: Error) => void) | undefined;
   vi.spyOn(server, "close").mockImplementation((callback) => {
-    callback?.(new Error("Synthetic close failure"));
+    finish = callback;
     return server;
   });
+  closeApplication.mockRejectedValue(new Error("Synthetic pool failure"));
   await main();
   const listening = vi.mocked(application.listen).mock.calls[0].at(-1);
   if (typeof listening === "function") listening();
   expect(console.log).toHaveBeenCalledWith("Server running on http://localhost:4500");
   signal("SIGTERM");
+  await finish!(new Error("Synthetic close failure"));
   expect(process.exitCode).toBe(1);
   expect(console.error).toHaveBeenCalledWith("Failed to close HTTP server:", expect.any(Error));
+  expect(console.error).toHaveBeenCalledWith("Failed to close database connections:", expect.any(Error));
+  expect(closeApplication).toHaveBeenCalledOnce();
 });
 
 it("should force stalled connections closed at the shutdown deadline", async () => {

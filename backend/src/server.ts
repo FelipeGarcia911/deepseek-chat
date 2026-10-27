@@ -8,7 +8,7 @@ export async function main() {
     throw new ConfigurationError([".env: could not be read; check the file location and permissions."]);
   }
   const config = loadConfig(process.env);
-  const app = await createApplication(config);
+  const { app, close: closeApplication } = await createApplication(config);
   const port = config.port;
   const server = app.listen(port, () => {
     const address = server.address();
@@ -36,14 +36,21 @@ export async function main() {
       process.exit(1);
     }, 10_000);
     shutdownTimer.unref();
-    server.close((error) => {
-      cleanup();
+    server.close(async (error) => {
       if (error) {
         console.error("Failed to close HTTP server:", error);
         process.exitCode = 1;
-        return;
+      } else {
+        console.log("HTTP server closed");
       }
-      console.log("HTTP server closed");
+      try {
+        await closeApplication();
+        console.log("Database connections closed");
+      } catch (closeError) {
+        console.error("Failed to close database connections:", closeError);
+        process.exitCode = 1;
+      }
+      cleanup();
     });
   };
 

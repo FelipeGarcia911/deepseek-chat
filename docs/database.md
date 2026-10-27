@@ -21,12 +21,12 @@ the `postgres-data` volume. `docker compose down -v` deletes it.
 
 ## Commands
 
-| Command           | Effect                                                                                                       |
-| ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `pnpm db:migrate` | Applies pending migrations in one transaction under Kysely's migration lock. Prints what it applied.         |
-| `pnpm db:seed`    | Idempotently ensures the `default` Workspace and its `development`, `staging` and `production` Environments. |
-| `pnpm db:reset`   | Drops and recreates the `public` schema, then migrates and seeds. Refused when `NODE_ENV=production`.        |
-| `pnpm db:types`   | Regenerates [backend/src/db/schema.ts](../backend/src/db/schema.ts) from the migrated database.              |
+| Command           | Effect                                                                                                                                                          |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm db:migrate` | Applies pending migrations in one transaction under Kysely's migration lock. Prints what it applied.                                                            |
+| `pnpm db:seed`    | Idempotently ensures the `default` Workspace and its `development`, `staging` and `production` Environments.                                                    |
+| `pnpm db:reset`   | Drops and recreates the `public` schema, then migrates and seeds. Allowed only when `NODE_ENV` is `development` or `test`; missing or other values are refused. |
+| `pnpm db:types`   | Regenerates [backend/src/db/schema.ts](../backend/src/db/schema.ts) from the migrated database.                                                                 |
 
 The API never migrates or seeds on startup. Production runs the compiled
 `node dist/db/cli.js migrate` explicitly before starting the new version (P8.4).
@@ -53,9 +53,14 @@ as in SQL.
 | `GET /health/live`  | The process serves HTTP. Never touches the database: `200 { "status": "ok" }`.                                                                                            |
 | `GET /health/ready` | The database answers and has no pending migrations: `200 { "status": "ready" }`, otherwise a 503 `DEPENDENCY_UNAVAILABLE` problem whose `detail` says which check failed. |
 
-[HealthService](../backend/src/services/HealthService.ts) implements both checks behind [HealthController](../backend/src/controllers/HealthController.ts) and [HealthRoutes](../backend/src/routes/HealthRoutes.ts), mounted at `/health` before CORS. Readiness only reads migration state; it never creates migration tables. The
+[HealthService](../backend/src/services/HealthService.ts) implements both checks behind [HealthController](../backend/src/controllers/HealthController.ts) and [HealthRoutes](../backend/src/routes/HealthRoutes.ts), mounted at `/health` before CORS. Readiness only reads migration state; it never creates migration tables. Any failure while connecting or reading migration state is a 503, never a 500. The
 pool times out new connections after 2 seconds, lets the process exit when idle,
 and logs instead of crashing when the server closes an idle connection.
+
+Composition creates one `Database` and returns `{ app, close }`; every service
+and repository receives that same instance. On SIGTERM or SIGINT the server
+stops accepting connections, waits for active requests, then closes the pool
+and logs `Database connections closed`, all within the 10-second deadline.
 
 ## Schema so far
 

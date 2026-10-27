@@ -10,9 +10,10 @@ export async function createApplication(config: AppConfig) {
   await mkdir(path.dirname(config.chatStoragePath), { recursive: true });
   const conversationService = new ConversationService(config.chatStoragePath);
   await conversationService.initialize();
-  const healthService = new HealthService(createDatabase(config.databaseUrl));
-  return createApp(
-    { conversationService, healthService },
+  const db = createDatabase(config.databaseUrl);
+  const app = createApp(
+    { conversationService, healthService: new HealthService(db) },
     { nodeEnv: config.nodeEnv, corsOrigins: config.corsOrigins }
   );
+  return { app, close: () => db.destroy() };
 }

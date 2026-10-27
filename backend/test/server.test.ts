@@ -134,6 +134,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     assert.equal(code, 0, running.output());
     assert.equal(exitSignal, null);
     assert.match(running.output(), /HTTP server closed/);
+    assert.match(running.output(), /Database connections closed/);
     assert.doesNotMatch(running.output(), /Synthetic private title/);
     assert.equal(JSON.parse(await readFile(running.storagePath, "utf8"))[0].title, "Synthetic private title");
   });

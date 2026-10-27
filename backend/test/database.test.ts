@@ -73,7 +73,7 @@ test("should report an unreachable database as not ready", async () => {
   try {
     assert.deepEqual(await new HealthService(db).checkReadiness(), {
       ready: false,
-      reason: "The database is unreachable.",
+      reason: "The database is unreachable or its migration state cannot be read.",
     });
   } finally {
     await db.destroy();
@@ -103,7 +103,7 @@ test("should migrate, seed and reset through the database command", async (t) =>
   assert.deepEqual(slugs, [{ slug: "default" }]);
 });
 
-test("should refuse unknown commands, invalid URLs and production resets before connecting", async () => {
+test("should refuse unknown commands and invalid URLs before connecting", async () => {
   const log = vi.fn();
   await assert.rejects(runDatabaseCommand(undefined, {}, log), /Usage: db <migrate\|seed\|reset>/);
   await assert.rejects(runDatabaseCommand("drop", {}, log), /Usage/);
@@ -111,10 +111,6 @@ test("should refuse unknown commands, invalid URLs and production resets before 
   await assert.rejects(
     runDatabaseCommand("migrate", { DATABASE_URL: "postgres://user:private-value@" }, log),
     (error: Error) => /DATABASE_URL/.test(error.message) && !error.message.includes("private-value")
-  );
-  await assert.rejects(
-    runDatabaseCommand("reset", { DATABASE_URL: "postgres://localhost/chat_app", NODE_ENV: "production" }, log),
-    /disabled when NODE_ENV is production/
   );
   assert.equal(log.mock.calls.length, 0);
 });
@@ -156,4 +152,25 @@ test("should keep working after the server closes an idle pooled connection", as
     ])
   );
   assert.deepEqual(await pendingMigrations(db), ["0001_create_workspaces_and_environments"]);
+});
+
+for (const nodeEnv of [undefined, "", "staging", "production"]) {
+  test(`should refuse to reset the database when NODE_ENV is ${JSON.stringify(nodeEnv)}`, async () => {
+    const log = vi.fn();
+    await assert.rejects(
+      runDatabaseCommand("reset", { DATABASE_URL: "postgres://localhost/chat_app", NODE_ENV: nodeEnv }, log),
+      /db reset is allowed only when NODE_ENV is development or test/
+    );
+    assert.equal(log.mock.calls.length, 0);
+  });
+}
+
+test("should report not ready when the migration state cannot be read", async (t) => {
+  const { db } = await createEmptyDatabase(t);
+  await sql`create table kysely_migration (unexpected int)`.execute(db);
+  await sql`create table kysely_migration_lock (unexpected int)`.execute(db);
+  assert.deepEqual(await new HealthService(db).checkReadiness(), {
+    ready: false,
+    reason: "The database is unreachable or its migration state cannot be read.",
+  });
 });
