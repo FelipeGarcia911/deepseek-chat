@@ -96,7 +96,7 @@ HTTP plus the current conversation-list handler:
 curl --fail http://localhost:4000/api/v1/admin/conversations
 ```
 
-The response is a JSON array, initially `[]`. It does not check a model or
+The response is a page, initially `{ "items": [], "nextCursor": null }`. It does not check a model or
 guarantee durable storage: the prototype file service recovers from read
 errors as an empty store. A dedicated liveness/readiness contract belongs to
 later operational work. Generation's deliberate 503 is not a failed startup.

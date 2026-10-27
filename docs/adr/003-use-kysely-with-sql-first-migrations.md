@@ -85,10 +85,15 @@ Use **Kysely** over **node-postgres (`pg`)** with **SQL-first migrations** on
    API startup ([P2.2](../roadmap.md)). Kysely's migrator records applied
    migrations and takes a lock, so concurrent runs cannot apply one twice.
 4. **All-or-nothing runs.** Kysely applies every pending migration inside one
-   transaction, so a failure leaves the schema unchanged. A statement that
-   cannot run in a transaction, such as `CREATE INDEX CONCURRENTLY`, goes alone
-   in its own migration and is applied by a separate run with
-   `disableTransactions`.
+   transaction and under its migration lock, so a failure leaves the schema
+   unchanged. In Kysely 0.29 `disableTransactions` applies to the whole migrator
+   run, not to one file. A statement that cannot run in a transaction, such as
+   `CREATE INDEX CONCURRENTLY`, therefore goes alone in its own migration, and
+   the runner must: apply all preceding migrations transactionally with
+   `migrateTo`, verify that the non-transactional migration is the only pending
+   one selected, apply that single migration with `disableTransactions`, then
+   resume normal transactional runs. The MVP does not need this path: tables are
+   new or small, so indexes are created normally inside transactions.
 5. **Expand, migrate, contract.** Breaking schema changes ship as separate
    releases: add the new structure, move data and readers, and drop the old
    structure only after no deployed version uses it. The previous application
@@ -102,6 +107,13 @@ Use **Kysely** over **node-postgres (`pg`)** with **SQL-first migrations** on
    migrations and seed.
 8. **Seed is separate from migrations.** Migrations change structure; the
    idempotent seed creates the default Workspace and the three Environments.
+
+## Prototype data
+
+Prototype JSON data will be discarded. No importer, dual-write, fallback,
+identifier conversion or compatibility layer will be implemented.
+`CHAT_STORAGE_PATH` and the file storage service will be removed after the
+PostgreSQL cutover (P2.4–P2.6).
 
 ## Testing
 
