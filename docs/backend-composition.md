@@ -27,8 +27,9 @@ composition. The parser's node environment and CORS list are passed to HTTP
 setup; services receive the shared `Database`. Application services,
 controllers and routes do not inspect process environment.
 
-Composition creates one PostgreSQL `Database` from `DATABASE_URL` and passes it
-to every service; connecting is lazy, so composition does not touch the
+Composition creates one PostgreSQL `Database` from `DATABASE_URL`, builds the
+`ConversationRepository` and its unit of work on it, and passes them to the
+application services; connecting is lazy, so composition does not touch the
 database. It returns `{ app, close }`, and shutdown closes the pool after HTTP
 requests drain. No prototype data is migrated.
 

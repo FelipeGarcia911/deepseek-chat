@@ -114,7 +114,22 @@ service only when testing error handling. The stub tests exercise a
 service throwing. A separate HTTP test points the application at a closed port
 and checks that an unreachable database is a `DEPENDENCY_UNAVAILABLE` problem.
 Persistence tests in `conversations.test.ts` run concurrent message admission
-against the real database to prove that only one Run is accepted.
+and completion against the real database to prove that only one Run is accepted
+and only one response is stored.
+
+Backend layers are tested at their natural boundary:
+
+- **Repository integration** (`conversation-repository.test.ts`) runs every
+  query against real PostgreSQL. Repositories are never faked in these tests.
+- **Application service units** (`conversation-service.test.ts`) use a complete
+  typed fake store whose unused methods throw. They cover rules that are hard to
+  provoke through a real database, such as a row disappearing between two reads.
+- **HTTP** tests stub the service only for error mapping; successful flows use
+  the real stack.
+
+Tests follow the repository rule against type assertions: invalid values for
+`CHECK` constraints are inserted with raw SQL, Node addresses are narrowed with
+`assert.ok`, and fakes implement every method instead of being cast.
 
 Supertest starts a server when a request is created, so tests that loop over
 several requests store functions that create them, not the requests themselves.

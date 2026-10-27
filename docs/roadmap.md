@@ -417,6 +417,8 @@ Still incomplete or only partial:
 
 **General description:** Move persistence and use-case orchestration behind domain-oriented interfaces.
 
+**Implementation:** `ConversationRepository` owns all conversation SQL and maps rows to contract types; `createUnitOfWork` runs a use case in one transaction. `ConversationService` enforces Production pinning, open/closed checks, one active Run, run transitions and atomic completion, including the send-message rule that used to live in the controller. Controllers only parse input with the shared schemas (`parse()` replaces the request-mutating middleware) and translate HTTP. Repository tests use real PostgreSQL; a complete typed fake store is limited to focused service unit tests. Type assertions were removed from source and tests (now an `AGENTS.md` rule), and `kysely-codegen` overrides generate literal unions for constrained columns.
+
 **Acceptance criteria:**
 
 - Controllers contain transport translation, not business rules or SQL.

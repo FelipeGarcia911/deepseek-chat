@@ -8,8 +8,8 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
 import axios from "axios";
+import { ProblemDetails } from "@chat-app/shared";
 import { parseFrontendConfig } from "../src/config/schema";
 import { fileURLToPath } from "node:url";
 import { build, createServer as createViteServer } from "vite";
@@ -71,7 +71,9 @@ test("should use the configured origin and API path prefix", async (t) => {
   );
   api.listen(0, "127.0.0.1");
   await once(api, "listening");
-  vi.stubEnv("VITE_API_BASE_URL", `http://127.0.0.1:${(api.address() as AddressInfo).port}/platform/api/`);
+  const address = api.address();
+  assert.ok(address && typeof address === "object");
+  vi.stubEnv("VITE_API_BASE_URL", `http://127.0.0.1:${address.port}/platform/api/`);
   const vite = await createViteServer({
     root,
     server: { middlewareMode: true, hmr: false, watch: null },
@@ -88,10 +90,9 @@ test("should use the configured origin and API path prefix", async (t) => {
     assert.ok(error instanceof Error);
     assert.equal(error.name, "ApiError");
     assert.equal(error.message, "No Model Profile has been configured.");
-    const { problem, cause } = error as Error & {
-      problem: { status: number; code: string; requestId: string };
-      cause: unknown;
-    };
+    assert.ok("problem" in error && "cause" in error);
+    const problem = ProblemDetails.parse(error.problem);
+    const { cause } = error;
     assert.deepEqual(
       [problem.status, problem.code, problem.requestId],
       [503, "MODEL_NOT_CONFIGURED", "synthetic-request-id"]

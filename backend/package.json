@@ -19,8 +19,8 @@
     "db:migrate": "ts-node src/db/cli.ts migrate",
     "db:seed": "ts-node src/db/cli.ts seed",
     "db:reset": "ts-node src/db/cli.ts reset",
-    "db:types": "kysely-codegen --dialect postgres --exclude-pattern \"kysely_*\" --out-file src/db/schema.ts",
-    "db:types:check": "kysely-codegen --dialect postgres --exclude-pattern \"kysely_*\" --out-file src/db/schema.ts --verify"
+    "db:types": "kysely-codegen",
+    "db:types:check": "kysely-codegen --verify"
   },
   "dependencies": {
     "@chat-app/shared": "workspace:*",

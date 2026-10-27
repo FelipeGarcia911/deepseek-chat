@@ -19,7 +19,10 @@ test("should return typed platform configuration that is deeply immutable for it
   });
   assert.ok(Object.isFrozen(config));
   assert.ok(Object.isFrozen(config.corsOrigins));
-  assert.throws(() => (config.corsOrigins as string[]).push("https://unapproved.example"), TypeError);
+  assert.throws(
+    () => Reflect.apply(Array.prototype.push, config.corsOrigins, ["https://unapproved.example"]),
+    TypeError
+  );
 });
 
 test("should preserve configuration input and normalize and deduplicate origins", () => {

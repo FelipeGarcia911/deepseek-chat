@@ -232,10 +232,10 @@ test("should enforce assistant slugs, names and status in the database", async (
     db.insertInto("assistants").values({ workspace_id: workspaceId, slug: "nameless", name: "" }),
     /assistants_name_check/
   );
-  await rejects(
-    db
-      .insertInto("assistants")
-      .values({ workspace_id: workspaceId, slug: "deleted", name: "Deleted", status: "deleted" }),
+  await assert.rejects(
+    sql`insert into assistants (workspace_id, slug, name, status) values (${workspaceId}, 'deleted', 'Deleted', 'deleted')`.execute(
+      db
+    ),
     /assistants_status_check/
   );
   const archived = await db

@@ -33,16 +33,17 @@ The monorepo contains `frontend/`, `backend/`, `packages/ui/` and
 remain in frontend. The current prototype routes have not yet been replaced
 by the target public/admin routes. See [internal packages](internal-packages.md).
 
-| Boundary                                                                                                         | Implemented responsibility                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| [Frontend config](../frontend/src/config/index.ts) and [HTTP service](../frontend/src/services/Conversations.ts) | Validated public API base from Vite; generation failures propagate rather than becoming assistant text.     |
-| [Backend config](../backend/src/config.ts)                                                                       | Pure immutable platform configuration; no model or dotenv side effects.                                     |
-| [server.ts](../backend/src/server.ts)                                                                            | Executable-only dotenv loading, validation before composition, HTTP startup and shutdown.                   |
-| [composition.ts](../backend/src/composition.ts)                                                                  | One `Database` shared by services; returns `{ app, close }`; no provider dependency.                        |
-| [routes/index.ts](../backend/src/routes/index.ts)                                                                | `/api/v1/admin` and `/api/v1/runtime` route groups; see [API surfaces](api-surfaces.md).                    |
-| [app.ts](../backend/src/app.ts) and [controller](../backend/src/controllers/ConversationController.ts)           | Configured CORS, injected storage methods, CRUD and unconfigured generation state.                          |
-| [http.ts](../backend/src/http.ts)                                                                                | Request IDs, schema validation, typed-error mapping and RFC 9457 problem responses.                         |
-| [ConversationService.ts](../backend/src/services/ConversationService.ts)                                         | Conversations pinned to Production versions, ordered messages and run admission/completion in transactions. |
+| Boundary                                                                                                         | Implemented responsibility                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| [Frontend config](../frontend/src/config/index.ts) and [HTTP service](../frontend/src/services/Conversations.ts) | Validated public API base from Vite; generation failures propagate rather than becoming assistant text.    |
+| [Backend config](../backend/src/config.ts)                                                                       | Pure immutable platform configuration; no model or dotenv side effects.                                    |
+| [server.ts](../backend/src/server.ts)                                                                            | Executable-only dotenv loading, validation before composition, HTTP startup and shutdown.                  |
+| [composition.ts](../backend/src/composition.ts)                                                                  | One `Database` shared by services; returns `{ app, close }`; no provider dependency.                       |
+| [routes/index.ts](../backend/src/routes/index.ts)                                                                | `/api/v1/admin` and `/api/v1/runtime` route groups; see [API surfaces](api-surfaces.md).                   |
+| [app.ts](../backend/src/app.ts) and [controller](../backend/src/controllers/ConversationController.ts)           | Configured CORS; controllers parse input with shared schemas and translate HTTP only.                      |
+| [http.ts](../backend/src/http.ts)                                                                                | Request IDs, schema validation, typed-error mapping and RFC 9457 problem responses.                        |
+| [ConversationRepository.ts](../backend/src/repositories/ConversationRepository.ts)                               | All conversation SQL; maps rows to contract types; `createUnitOfWork` runs work in one transaction.        |
+| [ConversationService.ts](../backend/src/services/ConversationService.ts)                                         | Application rules: Production pinning, open/closed checks, one active Run, run transitions and completion. |
 
 See [database](database.md) for the schema. Authentication, model execution,
 RAG, streaming and structured telemetry are future work.

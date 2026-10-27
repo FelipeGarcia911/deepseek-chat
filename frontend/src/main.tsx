@@ -4,7 +4,10 @@ import App from "./App.tsx";
 import { Provider } from "react-redux";
 import store from "./store/index.ts";
 
-createRoot(document.getElementById("root")!).render(
+const container = document.getElementById("root");
+if (!container) throw new Error("Missing #root element in index.html.");
+
+createRoot(container).render(
   <Provider store={store}>
     <App />
   </Provider>

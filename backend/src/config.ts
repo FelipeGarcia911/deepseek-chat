@@ -35,8 +35,9 @@ export function loadConfig(environment: Readonly<NodeJS.ProcessEnv>): AppConfig 
     return value;
   };
 
-  const nodeEnv = required("NODE_ENV") as NodeEnvironment;
-  if (nodeEnv && !Object.values(NodeEnvironment).includes(nodeEnv)) {
+  const nodeEnvValue = required("NODE_ENV");
+  const nodeEnv = Object.values(NodeEnvironment).find((value) => value === nodeEnvValue);
+  if (nodeEnvValue && !nodeEnv) {
     issues.push("NODE_ENV: must be development, test or production.");
   }
 
@@ -80,7 +81,7 @@ export function loadConfig(environment: Readonly<NodeJS.ProcessEnv>): AppConfig 
     issues.push("DATABASE_URL: must be a postgres:// or postgresql:// URL with a host and database name.");
   }
 
-  if (issues.length) throw new ConfigurationError(issues);
+  if (issues.length || !nodeEnv) throw new ConfigurationError(issues);
   return Object.freeze({
     nodeEnv,
     port,

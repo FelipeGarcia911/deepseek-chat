@@ -42,6 +42,10 @@ The API never migrates or seeds on startup. Production runs the compiled
 3. Write code that uses the new tables only after regenerating types.
 
 Never edit a migration that ran outside your machine; add a corrective one.
+[backend/.kysely-codegenrc.json](../backend/.kysely-codegenrc.json) holds the
+generator settings and overrides `CHECK`-constrained text columns (`status`,
+`role`, `key`, `target_kind`) with their literal unions, so repositories never
+cast database strings. Keep those overrides in sync with the constraints.
 The generated `schema.ts` is excluded from Prettier so `--verify` compares the
 exact generator output. Column names stay `snake_case` in TypeScript, exactly
 as in SQL.

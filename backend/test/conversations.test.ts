@@ -1,15 +1,22 @@
 import assert from "node:assert/strict";
-import { sql } from "kysely";
+import { sql, type Insertable } from "kysely";
+import type { DB } from "../src/db/schema";
 import { test, type TestContext } from "vitest";
+import type { Database } from "../src/db/database";
+import { ConversationRepository, createUnitOfWork } from "../src/repositories/ConversationRepository";
 import ConversationService, { type RunCompletion } from "../src/services/ConversationService";
 import { createMigratedDatabase, publishAssistant } from "./database";
 
 const firstPage = { limit: 20 };
 
+function conversationService(db: Database) {
+  return new ConversationService({ store: new ConversationRepository(db), transaction: createUnitOfWork(db) });
+}
+
 async function conversationFixture(t: TestContext) {
   const { db } = await createMigratedDatabase(t);
   const assistant = await publishAssistant(db, "support");
-  const service = new ConversationService(db);
+  const service = conversationService(db);
   const conversation = await service.createConversation("support", "Test chat");
   return { db, assistant, service, conversation };
 }
@@ -45,7 +52,7 @@ test("should store questions and answers in deterministic order with one succeed
   await succeed(service, conversation.id, "Second question", "Second answer");
   const page = await service.listMessages(conversation.id, firstPage);
   assert.deepEqual(
-    page?.items.map(({ role, content }) => [role, content]),
+    page.items.map(({ role, content }) => [role, content]),
     [
       ["user", "First question"],
       ["assistant", "First answer"],
@@ -71,10 +78,10 @@ test("should page messages oldest first with an opaque cursor", async (t) => {
   const { service, conversation } = await conversationFixture(t);
   await succeed(service, conversation.id, "Question", "Answer");
   const first = await service.listMessages(conversation.id, { limit: 1 });
-  assert.equal(first?.items[0].content, "Question");
-  const second = await service.listMessages(conversation.id, { limit: 1, cursor: first?.nextCursor ?? undefined });
-  assert.deepEqual([second?.items[0].content, second?.nextCursor], ["Answer", null]);
-  assert.equal(await service.listMessages("0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47", firstPage), undefined);
+  assert.equal(first.items[0].content, "Question");
+  const second = await service.listMessages(conversation.id, { limit: 1, cursor: first.nextCursor ?? undefined });
+  assert.deepEqual([second.items[0].content, second.nextCursor], ["Answer", null]);
+  await assert.rejects(service.listMessages("0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47", firstPage), { code: "NOT_FOUND" });
 });
 
 test("should admit only one run at a time when messages arrive concurrently", async (t) => {
@@ -190,8 +197,8 @@ test("should refuse new messages in closed conversations and delete history with
   await assert.rejects(service.acceptUserMessage("0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47", "Nobody"), {
     code: "NOT_FOUND",
   });
-  assert.equal(await service.deleteConversation(conversation.id), true);
-  assert.equal(await service.deleteConversation(conversation.id), false);
+  await service.deleteConversation(conversation.id);
+  await assert.rejects(service.deleteConversation(conversation.id), { code: "NOT_FOUND" });
   for (const table of ["messages", "runs"] as const) {
     assert.equal((await db.selectFrom(table).select("id").execute()).length, 0);
   }
@@ -201,10 +208,10 @@ test("should reject conversation targets that do not match their kind or assista
   const { db, assistant } = await conversationFixture(t);
   const other = await publishAssistant(db, "sales");
   const workspaceId = sql<string>`(select id from workspaces where slug = 'default')`;
-  const invalid = [
+  const invalid: Pick<Insertable<DB["conversations"]>, "target_kind" | "assistant_version_id" | "draft_snapshot">[] = [
     { target_kind: "version", assistant_version_id: null },
     { target_kind: "draft_snapshot", assistant_version_id: assistant.versionId, draft_snapshot: {} },
-    { target_kind: "draft_snapshot", assistant_version_id: null, draft_snapshot: sql<string>`'[]'::jsonb` },
+    { target_kind: "draft_snapshot", assistant_version_id: null, draft_snapshot: "[]" },
     { target_kind: "version", assistant_version_id: other.versionId },
   ];
   for (const target of invalid) {

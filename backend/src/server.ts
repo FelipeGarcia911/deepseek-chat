@@ -4,7 +4,8 @@ import { createApplication } from "./composition";
 
 export async function main() {
   const environmentFile = dotenv.config();
-  if (environmentFile.error && (environmentFile.error as NodeJS.ErrnoException).code !== "ENOENT") {
+  const { error } = environmentFile;
+  if (error && !("code" in error && error.code === "ENOENT")) {
     throw new ConfigurationError([".env: could not be read; check the file location and permissions."]);
   }
   const config = loadConfig(process.env);

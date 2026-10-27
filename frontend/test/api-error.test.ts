@@ -4,7 +4,7 @@ import { ApiError, send, toApiError } from "../src/services/ApiError";
 
 function axiosErrorWith(data: unknown, status = 400) {
   const config = { headers: new AxiosHeaders() };
-  const response = { data, status, statusText: "", headers: {}, config } as AxiosResponse;
+  const response: AxiosResponse = { data, status, statusText: "", headers: {}, config };
   return new AxiosError("Request failed", "ERR_BAD_REQUEST", config, undefined, response);
 }
 
@@ -21,9 +21,9 @@ const problem = {
 it("should turn a known problem response into an ApiError that keeps the request id for support", () => {
   const original = axiosErrorWith(problem);
   const error = toApiError(original);
-  expect(error).toBeInstanceOf(ApiError);
+  if (!(error instanceof ApiError)) throw new Error("Expected an ApiError");
   expect(error).toMatchObject({ message: problem.detail, problem, cause: original });
-  expect((error as ApiError).problem.requestId).toBe(problem.requestId);
+  expect(error.problem.requestId).toBe(problem.requestId);
 });
 
 it("should accept problem codes the client does not know yet", () => {

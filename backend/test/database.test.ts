@@ -71,7 +71,7 @@ test("should enforce workspace and environment constraints in the database", asy
     db.insertInto("workspaces").values({ slug: "Not A Slug", name: "Invalid" }),
     db.insertInto("workspaces").values({ slug: "default", name: "Duplicate" }),
     db.insertInto("workspaces").values({ slug: "empty-name", name: "" }),
-    db.insertInto("environments").values({ workspace_id: id, key: "qa" }),
+    { execute: () => sql`insert into environments (workspace_id, key) values (${id}, 'qa')`.execute(db) },
     db.insertInto("environments").values({ workspace_id: id, key: "production" }),
     db.insertInto("environments").values({ workspace_id: "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47", key: "staging" }),
   ];

@@ -26,3 +26,8 @@ it("should mount the application into the root element", async (t) => {
   await waitFor(() => expect(container).toHaveTextContent("Deepseek Chat UI"));
   expect(createRoot).toHaveBeenCalledWith(container);
 });
+
+it("should fail clearly when the root element is missing", async () => {
+  vi.resetModules();
+  await expect(import("./main")).rejects.toThrow("Missing #root element in index.html.");
+});

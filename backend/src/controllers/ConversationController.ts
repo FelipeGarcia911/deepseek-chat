@@ -1,63 +1,56 @@
 import { Request, Response } from "express";
 import {
+  AssistantParams,
   ConversationPage,
+  ConversationParams,
   ConversationSummary,
+  CreateConversationRequest,
   MessagePage,
-  type AssistantParams,
-  type ConversationParams,
-  type CreateConversationRequest,
-  type PageQuery,
+  PageQuery,
+  SendMessageRequest,
+  SendMessageResponse,
 } from "@chat-app/shared";
-import { AppError } from "../errors";
+import { parse } from "../http";
 import type ConversationService from "../services/ConversationService";
 
 export interface ConversationControllerDependencies {
   conversationService: Pick<
     ConversationService,
-    "listConversations" | "createConversation" | "getConversation" | "listMessages" | "deleteConversation"
+    "listConversations" | "createConversation" | "listMessages" | "sendMessage" | "deleteConversation"
   >;
 }
-
-const conversationNotFound = () => new AppError("NOT_FOUND", "Conversation not found.");
 
 class ConversationController {
   constructor(private readonly dependencies: ConversationControllerDependencies) {}
 
   listConversations = async (req: Request, res: Response): Promise<void> => {
-    const page = await this.dependencies.conversationService.listConversations(req.query as unknown as PageQuery);
-    res.json(ConversationPage.parse(page));
+    const query = parse(PageQuery, req.query, "query");
+    res.json(ConversationPage.parse(await this.dependencies.conversationService.listConversations(query)));
   };
 
   createConversation = async (req: Request, res: Response): Promise<void> => {
-    const { assistantSlug } = req.params as AssistantParams;
-    const { title } = req.body as CreateConversationRequest;
+    const { assistantSlug } = parse(AssistantParams, req.params, "params");
+    const { title } = parse(CreateConversationRequest, req.body, "body");
     const conversation = await this.dependencies.conversationService.createConversation(assistantSlug, title);
     res.status(201).json(ConversationSummary.parse(conversation));
   };
 
   listMessages = async (req: Request, res: Response): Promise<void> => {
-    const { conversationId } = req.params as ConversationParams;
-    const page = await this.dependencies.conversationService.listMessages(
-      conversationId,
-      req.query as unknown as PageQuery
-    );
-    if (!page) throw conversationNotFound();
-    res.json(MessagePage.parse(page));
+    const { conversationId } = parse(ConversationParams, req.params, "params");
+    const query = parse(PageQuery, req.query, "query");
+    res.json(MessagePage.parse(await this.dependencies.conversationService.listMessages(conversationId, query)));
   };
 
-  sendMessage = async (req: Request, _res: Response): Promise<void> => {
-    const { conversationId } = req.params as ConversationParams;
-    const conversation = await this.dependencies.conversationService.getConversation(conversationId);
-    if (!conversation) throw conversationNotFound();
-    if (conversation.status !== "open") throw new AppError("INVALID_STATE", "The conversation is closed.");
-    throw new AppError("MODEL_NOT_CONFIGURED", "No Model Profile has been configured.");
+  sendMessage = async (req: Request, res: Response): Promise<void> => {
+    const { conversationId } = parse(ConversationParams, req.params, "params");
+    const { content } = parse(SendMessageRequest, req.body, "body");
+    const response = await this.dependencies.conversationService.sendMessage(conversationId, content);
+    res.status(201).json(SendMessageResponse.parse(response));
   };
 
   deleteConversation = async (req: Request, res: Response): Promise<void> => {
-    const { conversationId } = req.params as ConversationParams;
-    if (!(await this.dependencies.conversationService.deleteConversation(conversationId))) {
-      throw conversationNotFound();
-    }
+    const { conversationId } = parse(ConversationParams, req.params, "params");
+    await this.dependencies.conversationService.deleteConversation(conversationId);
     res.status(204).end();
   };
 }

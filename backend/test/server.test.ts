@@ -4,7 +4,6 @@ import { once } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, request, type ClientRequest } from "node:http";
 import { createRequire } from "node:module";
-import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, test, type TestContext } from "vitest";
@@ -23,7 +22,9 @@ async function availablePort() {
   const reservation = createServer();
   reservation.listen(0);
   await once(reservation, "listening");
-  const port = (reservation.address() as AddressInfo).port;
+  const address = reservation.address();
+  assert.ok(address && typeof address === "object");
+  const port = address.port;
   await new Promise<void>((resolve, reject) => reservation.close((error) => (error ? reject(error) : resolve())));
   return String(port);
 }
@@ -92,7 +93,9 @@ async function launch(t: TestContext, environment: Environment = {}, envFile?: E
     async ready() {
       await waitForOutput(/Server running on http:\/\/localhost:\d+/);
       assert.equal(child.exitCode, null, output);
-      const port = output.match(/Server running on http:\/\/localhost:(\d+)/)![1];
+      const match = output.match(/Server running on http:\/\/localhost:(\d+)/);
+      assert.ok(match);
+      const port = match[1];
       return `http://127.0.0.1:${port}/api/v1`;
     },
   };
@@ -222,7 +225,9 @@ test("should exit unsuccessfully for a port binding error", { timeout: 10_000 },
   );
   occupied.listen(0);
   await once(occupied, "listening");
-  const running = await launch(t, { PORT: String((occupied.address() as AddressInfo).port) });
+  const address = occupied.address();
+  assert.ok(address && typeof address === "object");
+  const running = await launch(t, { PORT: String(address.port) });
   assert.equal((await running.exited)[0], 1);
   assert.match(running.output(), /Failed to start HTTP server:/);
   assert.match(running.output(), /EADDRINUSE/);

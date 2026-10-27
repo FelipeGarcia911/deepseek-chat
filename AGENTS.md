@@ -2,6 +2,10 @@
 
 Write code, test names and documentation in English.
 
+## Types
+
+- Do not use type assertions in production code or tests: no `as Type`, `as unknown as`, or non-null `!`. Parse untrusted input with the shared schemas, narrow with type guards (`instanceof`, `in`, `typeof`, `assert.ok`), or build complete typed fakes. `as const` is allowed.
+
 ## Tests
 
 - Do not add comments to test files or test setup. Express intent through descriptive names and readable assertions. Put explanations in `docs/testing.md`.

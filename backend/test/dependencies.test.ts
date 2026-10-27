@@ -4,6 +4,7 @@ import { test, vi } from "vitest";
 import { createApp, type AppDependencies } from "../src/app";
 import { NodeEnvironment } from "../src/config";
 import type { ConversationControllerDependencies } from "../src/controllers/ConversationController";
+import type { ConversationSummary } from "@chat-app/shared";
 import { AppError } from "../src/errors";
 
 type ConversationServiceStub = ConversationControllerDependencies["conversationService"];
@@ -14,7 +15,7 @@ const cases = [
   { method: "listConversations", verb: "get", route: "/admin/conversations" },
   { method: "createConversation", verb: "post", route: "/runtime/assistants/support/conversations" },
   { method: "listMessages", verb: "get", route: `/runtime/conversations/${conversationId}/messages` },
-  { method: "getConversation", verb: "post", route: `/runtime/conversations/${conversationId}/messages` },
+  { method: "sendMessage", verb: "post", route: `/runtime/conversations/${conversationId}/messages` },
   { method: "deleteConversation", verb: "delete", route: `/admin/conversations/${conversationId}` },
 ] as const;
 
@@ -30,24 +31,28 @@ function appWith(
   );
 }
 
-function createTestApp(method: (typeof cases)[number]["method"], failure: () => never) {
+function serviceStub(overrides: Partial<ConversationServiceStub> = {}): ConversationServiceStub {
   const unexpected = (): never => {
     throw new Error("Unexpected service operation");
   };
-  const conversationService: ConversationServiceStub = {
+  return {
     listConversations: async () => emptyPage,
     createConversation: unexpected,
-    getConversation: unexpected,
     listMessages: unexpected,
+    sendMessage: unexpected,
     deleteConversation: unexpected,
-    [method]: vi.fn(failure),
+    ...overrides,
   };
+}
+
+function createTestApp(method: (typeof cases)[number]["method"], failure: () => never) {
+  const conversationService = serviceStub({ [method]: vi.fn(failure) });
   return { conversationService, api: appWith(conversationService) };
 }
 
 function call(api: ReturnType<typeof request>, scenario: (typeof cases)[number]) {
   const operation = api[scenario.verb](`/api/v1${scenario.route}`);
-  if (scenario.method === "getConversation") return operation.send({ content: "Synthetic question" });
+  if (scenario.method === "sendMessage") return operation.send({ content: "Synthetic question" });
   return scenario.verb === "post" ? operation.send({ title: "Test chat" }) : operation;
 }
 
@@ -81,26 +86,27 @@ for (const scenario of cases) {
 }
 
 test("should strip members the response contract does not declare", async () => {
-  const summary = {
+  const summary: ConversationSummary = {
     id: conversationId,
     assistantId: conversationId,
     title: "Stored chat",
     status: "open",
     createdAt: "2026-10-26T12:00:00.000Z",
   };
-  const api = appWith({
-    listConversations: async () => ({ items: [{ ...summary, workspaceId: "internal" }], nextCursor: null }),
-  } as unknown as ConversationServiceStub);
+  const items = [{ ...summary, workspaceId: "internal" }];
+  const api = appWith(serviceStub({ listConversations: async () => ({ items, nextCursor: null }) }));
   await api.get("/api/v1/admin/conversations").expect(200, { items: [summary], nextCursor: null });
 });
 
 test("should return an internal error problem when a response breaks its contract", async () => {
-  const api = appWith({
-    listConversations: async () => ({
-      items: [{ id: "not-a-uuid", title: "Stored chat", createdAt: "yesterday" }],
-      nextCursor: null,
-    }),
-  } as unknown as ConversationServiceStub);
+  const broken: ConversationSummary = {
+    id: "not-a-uuid",
+    assistantId: conversationId,
+    title: "Stored chat",
+    status: "open",
+    createdAt: "yesterday",
+  };
+  const api = appWith(serviceStub({ listConversations: async () => ({ items: [broken], nextCursor: null }) }));
   const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
   const response = await api.get("/api/v1/admin/conversations").expect(500);
   assert.equal(response.body.code, "INTERNAL_ERROR");
@@ -110,17 +116,13 @@ test("should return an internal error problem when a response breaks its contrac
 
 test("should report liveness without consulting the database", async () => {
   const checkReadiness = vi.fn(async () => ({ ready: false as const, reason: "Unused." }));
-  await appWith({} as ConversationServiceStub, checkReadiness)
-    .get("/health/live")
-    .expect(200, { status: "ok" });
+  await appWith(serviceStub(), checkReadiness).get("/health/live").expect(200, { status: "ok" });
   assert.equal(checkReadiness.mock.calls.length, 0);
 });
 
 test("should report readiness separately from liveness", async () => {
-  await appWith({} as ConversationServiceStub)
-    .get("/health/ready")
-    .expect(200, { status: "ready" });
-  const response = await appWith({} as ConversationServiceStub, async () => ({
+  await appWith(serviceStub()).get("/health/ready").expect(200, { status: "ready" });
+  const response = await appWith(serviceStub(), async () => ({
     ready: false,
     reason: "The database is unreachable.",
   }))

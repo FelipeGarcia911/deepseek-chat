@@ -15,7 +15,9 @@ export function createDatabase(databaseUrl: string): Database {
 const unavailableCodes = new Set(["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "57P01", "57P03", "53300"]);
 
 export function isDatabaseUnavailable(error: unknown): boolean {
-  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
-  if (typeof code === "string" && (unavailableCodes.has(code) || code.startsWith("08"))) return true;
-  return typeof message === "string" && /timeout exceeded when trying to connect|Connection terminated/.test(message);
+  if (typeof error !== "object" || error === null) return false;
+  if ("code" in error && typeof error.code === "string") {
+    if (unavailableCodes.has(error.code) || error.code.startsWith("08")) return true;
+  }
+  return error instanceof Error && /timeout exceeded when trying to connect|Connection terminated/.test(error.message);
 }

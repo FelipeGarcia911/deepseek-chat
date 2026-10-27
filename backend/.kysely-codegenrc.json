@@ -1,0 +1,15 @@
+{
+  "dialect": "postgres",
+  "outFile": "src/db/schema.ts",
+  "excludePattern": "kysely_*",
+  "overrides": {
+    "columns": {
+      "assistants.status": "Generated<\"active\" | \"archived\">",
+      "conversations.status": "Generated<\"open\" | \"closed\">",
+      "conversations.target_kind": "\"version\" | \"draft_snapshot\"",
+      "environments.key": "\"development\" | \"staging\" | \"production\"",
+      "messages.role": "\"user\" | \"assistant\"",
+      "runs.status": "Generated<\"accepted\" | \"running\" | \"succeeded\" | \"failed\" | \"cancelled\" | \"expired\">"
+    }
+  }
+}

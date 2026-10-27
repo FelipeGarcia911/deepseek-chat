@@ -45,7 +45,7 @@ export interface Assistants {
   id: Generated<string>;
   name: string;
   slug: string;
-  status: Generated<string>;
+  status: Generated<"active" | "archived">;
   updated_at: Generated<Timestamp>;
   workspace_id: string;
 }
@@ -68,8 +68,8 @@ export interface Conversations {
   created_at: Generated<Timestamp>;
   draft_snapshot: Json | null;
   id: Generated<string>;
-  status: Generated<string>;
-  target_kind: string;
+  status: Generated<"open" | "closed">;
+  target_kind: "version" | "draft_snapshot";
   title: string;
   updated_at: Generated<Timestamp>;
   workspace_id: string;
@@ -89,7 +89,7 @@ export interface Deployments {
 export interface Environments {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
-  key: string;
+  key: "development" | "staging" | "production";
   workspace_id: string;
 }
 
@@ -98,7 +98,7 @@ export interface Messages {
   conversation_id: string;
   created_at: Generated<Timestamp>;
   id: Generated<string>;
-  role: string;
+  role: "user" | "assistant";
   run_id: string | null;
   sequence: number;
   workspace_id: string;
@@ -114,7 +114,7 @@ export interface Runs {
   model: string | null;
   provider: string | null;
   started_at: Timestamp | null;
-  status: Generated<string>;
+  status: Generated<"accepted" | "running" | "succeeded" | "failed" | "cancelled" | "expired">;
   trigger_message_id: string;
   usage: Json | null;
   workspace_id: string;
