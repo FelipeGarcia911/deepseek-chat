@@ -1,9 +1,11 @@
 import type { Kysely } from "kysely";
 import { Migrator } from "kysely/migration";
 import * as createWorkspacesAndEnvironments from "./migrations/0001_create_workspaces_and_environments";
+import * as createAssistantReleaseModel from "./migrations/0002_create_assistant_release_model";
 
 const migrations = {
   "0001_create_workspaces_and_environments": createWorkspacesAndEnvironments,
+  "0002_create_assistant_release_model": createAssistantReleaseModel,
 };
 
 export function createMigrator<T>(db: Kysely<T>) {

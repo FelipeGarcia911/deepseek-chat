@@ -8,6 +8,9 @@ import { environmentKeys, seed } from "../src/db/seed";
 import HealthService from "../src/services/HealthService";
 import { createEmptyDatabase } from "./database";
 
+const migrationNames = ["0001_create_workspaces_and_environments", "0002_create_assistant_release_model"];
+const releaseTables = ["active_deployments", "assistant_drafts", "assistant_versions", "assistants", "deployments"];
+
 async function tableNames(db: ReturnType<typeof createDatabase>) {
   const { rows } = await sql<{ table_name: string }>`
     select table_name from information_schema.tables where table_schema = 'public' order by table_name
@@ -17,11 +20,14 @@ async function tableNames(db: ReturnType<typeof createDatabase>) {
 
 test("should build a clean database entirely from versioned migrations and apply them once", async (t) => {
   const { db } = await createEmptyDatabase(t);
-  assert.deepEqual(await pendingMigrations(db), ["0001_create_workspaces_and_environments"]);
-  assert.deepEqual(await migrateToLatest(db), ["0001_create_workspaces_and_environments"]);
+  assert.deepEqual(await pendingMigrations(db), migrationNames);
+  assert.deepEqual(await migrateToLatest(db), migrationNames);
   assert.deepEqual(await migrateToLatest(db), []);
   assert.deepEqual(await pendingMigrations(db), []);
-  assert.deepEqual(await tableNames(db), ["environments", "kysely_migration", "kysely_migration_lock", "workspaces"]);
+  assert.deepEqual(
+    await tableNames(db),
+    [...releaseTables, "environments", "kysely_migration", "kysely_migration_lock", "workspaces"].sort()
+  );
 });
 
 test("should seed the default workspace and its three environments idempotently", async (t) => {
@@ -61,7 +67,7 @@ test("should report readiness without creating tables and only once migrations a
   const { db } = await createEmptyDatabase(t);
   assert.deepEqual(await new HealthService(db).checkReadiness(), {
     ready: false,
-    reason: "The database has 1 pending migration(s).",
+    reason: "The database has 2 pending migration(s).",
   });
   assert.deepEqual(await tableNames(db), []);
   await migrateToLatest(db);
@@ -91,11 +97,11 @@ test("should migrate, seed and reset through the database command", async (t) =>
   assert.deepEqual(
     log.mock.calls.map(([message]) => message),
     [
-      "Applied migrations: 0001_create_workspaces_and_environments.",
+      `Applied migrations: ${migrationNames.join(", ")}.`,
       "Database schema is up to date.",
       "Seed data is present.",
       "Dropped and recreated the public schema.",
-      "Applied migrations: 0001_create_workspaces_and_environments.",
+      `Applied migrations: ${migrationNames.join(", ")}.`,
       "Seed data is present.",
     ]
   );
@@ -119,7 +125,7 @@ test("should apply no migration when one of them fails", async (t) => {
   const { db } = await createEmptyDatabase(t);
   await sql`create table workspaces (id int)`.execute(db);
   await assert.rejects(migrateToLatest(db), /already exists/);
-  assert.deepEqual(await pendingMigrations(db), ["0001_create_workspaces_and_environments"]);
+  assert.deepEqual(await pendingMigrations(db), migrationNames);
   assert.deepEqual(await tableNames(db), ["kysely_migration", "kysely_migration_lock", "workspaces"]);
 });
 
@@ -151,7 +157,7 @@ test("should keep working after the server closes an idle pooled connection", as
       ["Idle database connection closed: terminating connection due to administrator command"],
     ])
   );
-  assert.deepEqual(await pendingMigrations(db), ["0001_create_workspaces_and_environments"]);
+  assert.deepEqual(await pendingMigrations(db), migrationNames);
 });
 
 for (const nodeEnv of [undefined, "", "staging", "production"]) {

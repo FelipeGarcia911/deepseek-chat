@@ -382,6 +382,8 @@ Still incomplete or only partial:
 
 **General description:** Implement the relational model for the Workspace, Assistants, Drafts, Versions, Environments and Deployments.
 
+**Implementation:** Migration `0002_create_assistant_release_model` adds `assistants`, `assistant_drafts`, immutable `assistant_versions` and `deployments` (update/delete rejected by trigger) and the `active_deployments` lookup whose primary key allows one active Deployment per Assistant and Environment. Composite foreign keys including `workspace_id` enforce ownership; [database](database.md#schema-so-far) lists every constraint. Persistence tests prove draft revision updates, immutability, per-Assistant version numbering, the moving lookup and rejection of cross-Workspace, cross-Assistant and cross-Environment references.
+
 **Acceptance criteria:**
 
 - Foreign keys, uniqueness, timestamps and version constraints enforce documented invariants.
@@ -431,7 +433,7 @@ Still incomplete or only partial:
 **Acceptance criteria:**
 
 - The application has one authoritative storage path.
-- Existing prototype data is either migrated by a documented one-time tool or explicitly declared disposable.
+- Existing prototype data is explicitly declared disposable ([ADR-003](adr/003-use-kysely-with-sql-first-migrations.md#prototype-data)); no importer, dual-write or compatibility layer is built.
 - JSON storage code and obsolete environment variables are removed.
 
 **Technical justification and learning:** Dual writes and indefinite compatibility code create hidden failure modes. Learn cutover planning and deliberate data-retention decisions.

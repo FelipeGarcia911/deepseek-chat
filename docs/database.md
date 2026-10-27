@@ -69,7 +69,23 @@ and logs `Database connections closed`, all within the 10-second deadline.
 | `workspaces`   | `uuidv7()` id, unique lowercase `slug`, `name` of 1–120 characters. The seed owns the `default` row.          |
 | `environments` | `uuidv7()` id, `workspace_id` foreign key, `key` limited to the three MVP environments, unique per Workspace. |
 
-P2.3 adds Assistants, Drafts, Versions and Deployments.
+| `assistants` | `uuidv7()` id, `slug` of 3–63 lowercase characters unique per Workspace, `name` of 1–120 characters, `status` `active` or `archived`. |
+| `assistant_drafts` | One row per Assistant (primary key `assistant_id`). Mutable: `revision` starts at 1, `instructions` up to 20,000 characters, `settings` JSON object. |
+| `assistant_versions` | Immutable: updates and deletes are rejected by trigger. `version_number` unique per Assistant, `source_draft_revision`, snapshot of instructions and settings, `published_by`. |
+| `deployments` | Immutable, append-only audit of promotions and rollbacks: target Version, Environment, optional `previous_deployment_id`, `deployed_by`. |
+| `active_deployments` | The moving lookup. Primary key `(assistant_id, environment_id)`, so each Assistant has at most one active Deployment per Environment. |
+
+Ownership is enforced with composite foreign keys that include `workspace_id`
+and, where relevant, `assistant_id` and `environment_id`. A Draft or Version
+cannot belong to an Assistant of another Workspace; a Deployment cannot target
+another Assistant's Version or another Workspace's Environment; a previous
+Deployment and the active lookup must match the same Assistant and Environment.
+Named constraints (`deployments_version_fkey`, `active_deployments_deployment_fkey`
+and others) keep violations recognizable. `updated_at` is maintained by a
+`set_updated_at` trigger; immutable rows fail with SQLSTATE `23001`
+(`restrict_violation`). Model Profile and knowledge references arrive with P4.4
+and P6. Writing these rows through use cases (revision checks, version
+numbering, moving the lookup atomically) belongs to P2.5 and P5.
 
 ## TypeScript and module format
 

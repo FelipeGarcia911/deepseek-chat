@@ -9,7 +9,69 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
   ? ColumnType<S, I | undefined, U>
   : ColumnType<T, T | undefined, T>;
 
+export type Json = JsonValue;
+
+export type JsonArray = JsonValue[];
+
+export type JsonObject = {
+  [x: string]: JsonValue | undefined;
+};
+
+export type JsonPrimitive = boolean | number | string | null;
+
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface ActiveDeployments {
+  assistant_id: string;
+  deployment_id: string;
+  environment_id: string;
+  updated_at: Generated<Timestamp>;
+  workspace_id: string;
+}
+
+export interface AssistantDrafts {
+  assistant_id: string;
+  instructions: Generated<string>;
+  revision: Generated<number>;
+  settings: Generated<Json>;
+  updated_at: Generated<Timestamp>;
+  workspace_id: string;
+}
+
+export interface Assistants {
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  name: string;
+  slug: string;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  workspace_id: string;
+}
+
+export interface AssistantVersions {
+  assistant_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  instructions: string;
+  published_by: string;
+  settings: Json;
+  source_draft_revision: number;
+  version_number: number;
+  workspace_id: string;
+}
+
+export interface Deployments {
+  assistant_id: string;
+  assistant_version_id: string;
+  created_at: Generated<Timestamp>;
+  deployed_by: string;
+  environment_id: string;
+  id: Generated<string>;
+  previous_deployment_id: string | null;
+  workspace_id: string;
+}
 
 export interface Environments {
   created_at: Generated<Timestamp>;
@@ -26,6 +88,11 @@ export interface Workspaces {
 }
 
 export interface DB {
+  active_deployments: ActiveDeployments;
+  assistant_drafts: AssistantDrafts;
+  assistant_versions: AssistantVersions;
+  assistants: Assistants;
+  deployments: Deployments;
   environments: Environments;
   workspaces: Workspaces;
 }
