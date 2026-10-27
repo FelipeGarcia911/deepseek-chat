@@ -103,9 +103,7 @@ curl --fail http://localhost:4000/health/ready
 curl --fail http://localhost:4000/api/v1/admin/conversations
 ```
 
-The response is a page, initially `{ "items": [], "nextCursor": null }`. It does not check a model or
-guarantee durable storage: the prototype file service recovers from read
-errors as an empty store. Generation's deliberate 503 is not a failed startup.
+The response is a page, initially `{ "items": [], "nextCursor": null }`. It does not check a model. Generation's deliberate 503 is not a failed startup.
 
 ## Run and verify
 
@@ -138,8 +136,8 @@ requests without Origin remain available to local tools.
 | `pnpm --filter backend start`          | Run the compiled API after building.                      |
 | `pnpm --filter frontend preview`       | Preview the already-built frontend.                       |
 
-Tests need no real model or provider credentials. They use temporary storage
-and local ports. The existing Vite bundle-size warning remains visible and is
+Tests need no real model or provider credentials. They use a fresh PostgreSQL
+database per test and local ports. The existing Vite bundle-size warning remains visible and is
 documented in [quality gates](docs/quality-gates.md).
 
 ## Configuration ownership and workspace

@@ -285,7 +285,7 @@ in the target model, even where the parent also implies ownership.
 
 | Configuration owner                 | Changes affect                                                          | Must not change implicitly                                        |
 | ----------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Platform deployment                 | Listener, CORS, node environment and current file storage.              | Assistant instructions, model selection or generation parameters. |
+| Platform deployment                 | Listener, CORS, node environment and database connection.               | Assistant instructions, model selection or generation parameters. |
 | Model Profile                       | Future Draft/profile resolution and newly published effective settings. | Existing Versions and pinned Conversations.                       |
 | Assistant Draft                     | Future snapshots, publication and new Draft Playground sessions.        | Published releases and existing sessions.                         |
 | Assistant Version                   | No in-place configuration changes.                                      | Its instructions, effective model settings or pinned knowledge.   |

@@ -8,7 +8,7 @@ future owners; they are not global application settings.
 
 | Owner                               | Configuration                                                                                   |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Platform environment                | Node environment, HTTP port, browser origin allowlist and current file-store location.          |
+| Platform environment                | Node environment, HTTP port, browser origin allowlist and PostgreSQL connection URL.            |
 | Model Profile, persisted later      | Provider connection, model identity, capabilities and server-side credential references.        |
 | Assistant Draft / immutable Version | Instructions, generation parameters, context policy, knowledge version and public presentation. |
 
@@ -52,8 +52,8 @@ on the old names. Unknown process variables do not configure a model.
    file is an actionable startup failure.
 3. Startup reads `process.env` once through `loadConfig` before any composition
    or listening. Invalid fields are reported together without echoing values.
-4. `createApplication(config)` receives the validated object, prepares storage
-   and passes only HTTP environment/origin settings to `createApp`.
+4. `createApplication(config)` receives the validated object, creates the database
+   pool lazily and passes only HTTP environment/origin settings to `createApp`.
 
 Imports remain free of startup, dotenv and filesystem side effects. Restart
 backend development after changing `.env`; nodemon watches source and shared
@@ -154,7 +154,7 @@ pnpm lint
 pnpm build
 ```
 
-Tests use temporary storage and local HTTP listeners. They cover pure parsing,
+Tests use per-test PostgreSQL databases and local HTTP listeners. They cover pure parsing,
 immutability, required fields, port ranges, origin normalization, CORS,
 independent application configurations, startup failures, CRUD without a model
 and side-effect-free generation rejection. Frontend tests verify API URL

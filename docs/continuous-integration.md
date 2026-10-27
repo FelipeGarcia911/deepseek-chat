@@ -48,7 +48,8 @@ must update it locally and pass a frozen installation before review.
 CI sets only the public build setting `VITE_API_BASE_URL=/api`. The build
 therefore needs no private `.env`. This is a same-origin deployment URL,
 not an automatically configured Vite development proxy. Backend tests supply
-their own validated settings, temporary files and local listeners; compiling
+their own validated settings, per-test databases on the service container and
+local listeners; compiling
 the backend does not start it or load dotenv.
 
 For local development, use the root README's env examples. The backend needs

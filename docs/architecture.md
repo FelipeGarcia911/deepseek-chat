@@ -116,7 +116,7 @@ explicitly scoped to the prototype until contract/persistence migration.
 
 | Owner                                        | Settings and data                                                                                                |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Platform environment                         | Node environment, HTTP port, allowed CORS origins and the temporary chat-storage path.                           |
+| Platform environment                         | Node environment, HTTP port, allowed CORS origins and the PostgreSQL `DATABASE_URL`.                             |
 | Persisted Model Profiles, later              | Provider connections, model identity, capabilities and credential references.                                    |
 | Assistant Drafts / immutable Versions, later | Instructions, generation parameters, context and guardrail policy, knowledge references and public presentation. |
 

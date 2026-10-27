@@ -171,7 +171,7 @@ Vitest transforms TypeScript but does not replace type checking. Each app has
 `tsconfig.test.json`, included in its `typecheck` script. The backend build
 includes only `src`; tests do not enter its deployment output.
 
-Tests use fresh Redux stores and temporary storage, restore spies and env
+Tests use fresh Redux stores and per-test PostgreSQL databases, restore spies and env
 overrides, close HTTP/Vite fixtures and terminate child processes. Process
 fixtures wait for stdout/exit events instead of sleeps. Timeouts are failure
 bounds, not synchronization delays. Only lifecycle tests and the frontend's

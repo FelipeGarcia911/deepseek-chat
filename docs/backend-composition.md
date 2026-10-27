@@ -6,15 +6,15 @@ direct model composition. See the [roadmap](roadmap.md) for the task sequence.
 
 ## Responsibilities
 
-| File                                                | Responsibility                                                                                                                                      |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/src/config.ts`                             | Pure `loadConfig(env): AppConfig`; validation and normalization only.                                                                               |
-| `backend/src/server.ts`                             | Loads dotenv at executable startup, validates the process environment once, starts HTTP and handles shutdown or startup failure.                    |
-| `backend/src/composition.ts`                        | Receives `AppConfig`, prepares the configured storage parent, initializes `ConversationService` and constructs the app. No provider is constructed. |
-| `backend/src/app.ts`                                | Receives controller dependencies and only the HTTP environment/origin settings; constructs middleware and routers without listening.                |
-| `backend/src/controllers/ConversationController.ts` | Receives the narrow storage methods it needs; exposes conversation operations and the explicit unconfigured-model response.                         |
-| `backend/src/routes/`                               | Creates routers from the supplied controller rather than importing global service instances.                                                        |
-| `backend/src/services/ConversationService.ts`       | Receives an absolute file path and initializes storage explicitly; never reads environment variables.                                               |
+| File                                                | Responsibility                                                                                                                                |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/src/config.ts`                             | Pure `loadConfig(env): AppConfig`; validation and normalization only.                                                                         |
+| `backend/src/server.ts`                             | Loads dotenv at executable startup, validates the process environment once, starts HTTP and handles shutdown or startup failure.              |
+| `backend/src/composition.ts`                        | Receives `AppConfig`, creates one `Database`, builds the repository-backed services and returns `{ app, close }`. No provider is constructed. |
+| `backend/src/app.ts`                                | Receives controller dependencies and only the HTTP environment/origin settings; constructs middleware and routers without listening.          |
+| `backend/src/controllers/ConversationController.ts` | Receives the narrow storage methods it needs; exposes conversation operations and the explicit unconfigured-model response.                   |
+| `backend/src/routes/`                               | Creates routers from the supplied controller rather than importing global service instances.                                                  |
+| `backend/src/services/ConversationService.ts`       | Receives its store and unit of work; holds conversation rules; never reads environment variables.                                             |
 
 The composition root chooses and connects concrete implementations. There is
 no DI container and no current model dependency. Imports of app, composition,
@@ -64,7 +64,7 @@ body, proving that accepted requests drain without depending on a model.
 Other checks cover side-effect-free imports, startup configuration, CORS,
 CRUD, immutable configuration and generation rejection without persistence.
 
-Tests use temporary files, independently composed apps and local HTTP ports.
+Tests use a fresh PostgreSQL database each, independently composed apps and local HTTP ports.
 No Ollama instance, fake model provider or provider contract is required.
 Frontend/component coverage is documented in [test foundations](testing.md);
 backend lint is part of the shared [quality gates](quality-gates.md).
