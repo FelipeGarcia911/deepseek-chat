@@ -1,7 +1,57 @@
 import type { ConversationSummary, Message, PageQuery } from "@chat-app/shared";
 import { AppError } from "../errors";
 import { decodeCursor, toPage, type Page } from "../pagination";
-import type { ConversationStore, StoredMessage, UnitOfWork } from "../repositories/ConversationRepository";
+
+export type RunStatus = "accepted" | "running" | "succeeded" | "failed" | "cancelled" | "expired";
+export type StoredMessage = Message & { sequence: number };
+export type LockedConversation = ConversationSummary & { workspaceId: string };
+
+export interface AssistantTarget {
+  assistantId: string;
+  workspaceId: string;
+  status: "active" | "archived";
+  versionId: string | null;
+}
+
+export interface RunChanges {
+  status: RunStatus;
+  startedAt?: Date;
+  finishedAt?: Date;
+  provider?: string;
+  model?: string;
+  usage?: Record<string, number> | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface ConversationStore {
+  listConversations(limit: number, beforeId?: string): Promise<ConversationSummary[]>;
+  findConversation(conversationId: string): Promise<ConversationSummary | undefined>;
+  lockConversation(conversationId: string): Promise<LockedConversation | undefined>;
+  findAssistantTarget(assistantSlug: string): Promise<AssistantTarget | undefined>;
+  insertConversation(target: {
+    workspaceId: string;
+    assistantId: string;
+    versionId: string;
+    title: string;
+  }): Promise<ConversationSummary>;
+  deleteConversation(conversationId: string): Promise<boolean>;
+  listMessages(conversationId: string, limit: number, afterSequence?: number): Promise<StoredMessage[]>;
+  appendMessage(message: {
+    workspaceId: string;
+    conversationId: string;
+    role: Message["role"];
+    content: string;
+    runId?: string;
+  }): Promise<StoredMessage>;
+  hasActiveRun(conversationId: string): Promise<boolean>;
+  insertRun(run: { workspaceId: string; conversationId: string; triggerMessageId: string }): Promise<string>;
+  findRun(runId: string, lock?: boolean): Promise<{ conversationId: string; status: RunStatus } | undefined>;
+  updateRun(runId: string, from: RunStatus[], changes: RunChanges): Promise<boolean>;
+  findResponse(runId: string): Promise<StoredMessage | undefined>;
+}
+
+export type UnitOfWork = <T>(work: (store: ConversationStore) => Promise<T>) => Promise<T>;
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const sequencePattern = /^[1-9]\d{0,9}$/;
@@ -95,7 +145,7 @@ class ConversationService {
   async startRun(runId: string, model: { provider: string; model: string }): Promise<void> {
     const started = await this.store.updateRun(runId, ["accepted"], {
       status: "running",
-      started_at: new Date(),
+      startedAt: new Date(),
       provider: model.provider,
       model: model.model,
     });
@@ -115,7 +165,7 @@ class ConversationService {
       if (run.status !== "running") throw new AppError("INVALID_STATE", `The run is ${run.status}.`);
       await store.updateRun(runId, ["running"], {
         status: "succeeded",
-        finished_at: new Date(),
+        finishedAt: new Date(),
         usage: result.usage ?? null,
       });
       const message = await store.appendMessage({
@@ -133,9 +183,9 @@ class ConversationService {
     const error = completion.outcome === "cancelled" ? undefined : completion.error;
     const finished = await this.store.updateRun(runId, ["accepted", "running"], {
       status: completion.outcome,
-      finished_at: new Date(),
-      error_code: error?.code ?? null,
-      error_message: error?.message ?? null,
+      finishedAt: new Date(),
+      errorCode: error?.code ?? null,
+      errorMessage: error?.message ?? null,
     });
     if (!finished) throw new AppError("INVALID_STATE", "The run has already finished.");
   }

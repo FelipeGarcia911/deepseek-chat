@@ -7,8 +7,11 @@ async function repositoryFixture(t: TestContext) {
   const { db } = await createMigratedDatabase(t);
   const assistant = await publishAssistant(db, "support");
   const repository = new ConversationRepository(db);
-  const target = (await repository.findAssistantTarget("support"))!;
-  const create = (title: string) => repository.insertConversation({ ...target, versionId: target.versionId!, title });
+  const target = await repository.findAssistantTarget("support");
+  assert.ok(target);
+  const { versionId } = target;
+  assert.ok(versionId);
+  const create = (title: string) => repository.insertConversation({ ...target, versionId, title });
   return { db, assistant, repository, target, create };
 }
 
@@ -28,7 +31,7 @@ test("should resolve an assistant's production target, or its absence, by slug",
 });
 
 test("should list conversations newest first before a given identifier", async (t) => {
-  const { repository, create } = await repositoryFixture(t);
+  const { repository, target, create } = await repositoryFixture(t);
   const [first, second, third] = [await create("First"), await create("Second"), await create("Third")];
   assert.deepEqual(
     (await repository.listConversations(10)).map(({ title }) => title),
@@ -38,7 +41,7 @@ test("should list conversations newest first before a given identifier", async (
   assert.deepEqual(await repository.findConversation(first.id), first);
   assert.deepEqual(await repository.lockConversation(first.id), {
     ...first,
-    workspaceId: (await repository.findAssistantTarget("support"))!.workspaceId,
+    workspaceId: target.workspaceId,
   });
   assert.equal(await repository.findConversation("0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47"), undefined);
 });
@@ -51,9 +54,9 @@ test("should append messages with increasing sequences and read them after a seq
   const runId = await repository.insertRun({ ...base, triggerMessageId: question.id });
   assert.equal(await repository.hasActiveRun(conversation.id), true);
   assert.equal(await repository.updateRun(runId, ["running"], { status: "succeeded" }), false);
-  assert.equal(await repository.updateRun(runId, ["accepted"], { status: "running", started_at: new Date() }), true);
+  assert.equal(await repository.updateRun(runId, ["accepted"], { status: "running", startedAt: new Date() }), true);
   const answer = await createUnitOfWork(db)(async (store) => {
-    assert.equal(await store.updateRun(runId, ["running"], { status: "succeeded", finished_at: new Date() }), true);
+    assert.equal(await store.updateRun(runId, ["running"], { status: "succeeded", finishedAt: new Date() }), true);
     assert.deepEqual(await store.findRun(runId, true), { conversationId: conversation.id, status: "succeeded" });
     return store.appendMessage({ ...base, role: "assistant", content: "Answer", runId });
   });

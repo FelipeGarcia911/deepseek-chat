@@ -1,21 +1,19 @@
 import type { ConversationSummary, Message } from "@chat-app/shared";
-import type { Selectable, Transaction, Updateable } from "kysely";
+import type { Selectable, Transaction } from "kysely";
 import type { Database } from "../db/database";
 import type { DB } from "../db/schema";
 import { defaultWorkspaceSlug } from "../db/seed";
+import type {
+  AssistantTarget,
+  ConversationStore,
+  LockedConversation,
+  RunChanges,
+  RunStatus,
+  StoredMessage,
+  UnitOfWork,
+} from "../services/ConversationService";
 
 type Executor = Database | Transaction<DB>;
-
-export type RunStatus = Selectable<DB["runs"]>["status"];
-export type StoredMessage = Message & { sequence: number };
-export type LockedConversation = ConversationSummary & { workspaceId: string };
-
-export interface AssistantTarget {
-  assistantId: string;
-  workspaceId: string;
-  status: Selectable<DB["assistants"]>["status"];
-  versionId: string | null;
-}
 
 const conversationColumns = ["id", "workspace_id", "assistant_id", "title", "status", "created_at"] as const;
 const messageColumns = ["id", "role", "content", "sequence", "created_at"] as const;
@@ -44,7 +42,7 @@ function toMessage(
   };
 }
 
-export class ConversationRepository {
+export class ConversationRepository implements ConversationStore {
   constructor(private readonly db: Executor) {}
 
   private workspaceId() {
@@ -196,10 +194,19 @@ export class ConversationRepository {
     return row && { conversationId: row.conversation_id, status: row.status };
   }
 
-  async updateRun(runId: string, from: RunStatus[], changes: Updateable<DB["runs"]>): Promise<boolean> {
+  async updateRun(runId: string, from: RunStatus[], changes: RunChanges): Promise<boolean> {
     const result = await this.db
       .updateTable("runs")
-      .set(changes)
+      .set({
+        status: changes.status,
+        started_at: changes.startedAt,
+        finished_at: changes.finishedAt,
+        provider: changes.provider,
+        model: changes.model,
+        usage: changes.usage,
+        error_code: changes.errorCode,
+        error_message: changes.errorMessage,
+      })
       .where("id", "=", runId)
       .where("status", "in", from)
       .executeTakeFirst();
@@ -215,9 +222,6 @@ export class ConversationRepository {
     return row && toMessage(row);
   }
 }
-
-export type ConversationStore = { [Method in keyof ConversationRepository]: ConversationRepository[Method] };
-export type UnitOfWork = <T>(work: (store: ConversationStore) => Promise<T>) => Promise<T>;
 
 export function createUnitOfWork(db: Database): UnitOfWork {
   return (work) => db.transaction().execute((trx) => work(new ConversationRepository(trx)));

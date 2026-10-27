@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AssistantTarget, ConversationStore } from "../src/repositories/ConversationRepository";
-import ConversationService from "../src/services/ConversationService";
+import ConversationService, { type AssistantTarget, type ConversationStore } from "../src/services/ConversationService";
 
 const id = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
 const open = { id, assistantId: id, title: "Chat", status: "open" as const, createdAt: "2026-10-27T12:00:00.000Z" };
