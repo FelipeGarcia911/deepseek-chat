@@ -127,6 +127,11 @@ Backend layers are tested at their natural boundary:
 - **HTTP** tests stub the service only for error mapping; successful flows use
   the real stack.
 
+Model providers are tested through reusable contract suites in
+`backend/test/support/model-contract.ts`. Each suite registers the behavior any
+provider must guarantee; `model-gateway.test.ts` runs it against the
+deterministic fakes, and each real adapter will run the same suite.
+
 Tests follow the repository rule against type assertions: invalid values for
 `CHECK` constraints are inserted with raw SQL, Node addresses are narrowed with
 `assert.ok`, and fakes implement every method instead of being cast.

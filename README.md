@@ -167,6 +167,7 @@ components across the two surfaces of the same React app. Commit the root
 - [ADR-002: API contract strategy](docs/adr/002-share-runtime-validated-api-contracts.md)
 - [ADR-003: PostgreSQL data access](docs/adr/003-use-kysely-with-sql-first-migrations.md)
 - [PostgreSQL database](docs/database.md)
+- [ADR-004: Model gateway contract](docs/adr/004-own-the-model-gateway-contract.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 

@@ -460,6 +460,8 @@ Still incomplete or only partial:
 
 **General description:** Define internal contracts for chat generation, streaming, embeddings, model capabilities and provider errors.
 
+**Implementation:** [ADR-004](adr/004-own-the-model-gateway-contract.md) keeps a small owned contract instead of adopting an SDK's types. `backend/src/models/gateway.ts` defines `ChatModel` (generate and stream with `AbortSignal`), a separate `EmbeddingModel`, `ChatCapabilities` (streaming, tool calling, structured output, vision, usage reporting) with `requireCapability`, the effective model identity on every result, optional usage and `ModelError` with closed, retry-aware kinds (including `model_not_found`). Fakes can script replies, chunks, usage and failures before or during a stream; no table, endpoint, environment variable or Assistant setting was added, and sending a message still answers `MODEL_NOT_CONFIGURED`. Deterministic fake chat and embedding models and reusable contract suites live in `backend/test/support` and run against the fakes; P3.2 and P3.7 adapters must pass the same suites.
+
 **Acceptance criteria:**
 
 - Application code depends on internal contracts rather than Ollama payloads.
