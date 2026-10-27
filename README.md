@@ -162,6 +162,7 @@ components across the two surfaces of the same React app. Commit the root
 - [Lifecycle states and invariants](docs/lifecycle.md)
 - [API surfaces: admin and runtime routes](docs/api-surfaces.md)
 - [ADR-002: API contract strategy](docs/adr/002-share-runtime-validated-api-contracts.md)
+- [ADR-003: PostgreSQL data access](docs/adr/003-use-kysely-with-sql-first-migrations.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 

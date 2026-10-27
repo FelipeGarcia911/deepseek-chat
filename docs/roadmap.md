@@ -349,6 +349,8 @@ Still incomplete or only partial:
 
 **General description:** Compare credible TypeScript database approaches and choose one for schemas, migrations, queries and tests.
 
+**Implementation:** [ADR-003](adr/003-use-kysely-with-sql-first-migrations.md) compares Prisma 7, Sequelize 6, Drizzle 0.45/1.0 RC, Kysely and direct `pg`. It selects Kysely over node-postgres on PostgreSQL 18 with pgvector: hand-written SQL-first migrations, `kysely-codegen` types checked for drift in CI, explicit transactions and database-enforced invariants. Migrations are forward-only and immutable once applied, run explicitly and follow expand/migrate/contract; rollback means redeploying a compatible application or a corrective migration, with backups for data loss.
+
 **Acceptance criteria:**
 
 - ADR compares Prisma, Drizzle and a query-builder or direct SQL alternative.
