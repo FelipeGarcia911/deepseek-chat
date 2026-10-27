@@ -94,8 +94,16 @@ Migration `0004_create_conversations_messages_runs` adds:
 | `runs`          | Start `accepted`; trigger allows only the lifecycle transitions; terminal Runs are immutable. One `accepted`/`running` Run per Conversation (partial unique index). `failed`/`expired` require `error_code`.   |
 
 A trigger rejects an assistant Message unless its Run is `succeeded`, and a
-Run must be triggered by a user Message of the same Conversation. Deleting a
-Conversation cascades to its Messages and Runs (explicit admin deletion).
+Run must be triggered by a user Message of the same Conversation.
+
+Migration `0005_harden_run_response_invariants` closes the equivalence in the
+other direction: a deferred constraint trigger checks at commit that a
+`succeeded` Run has exactly one assistant Message and any other Run has none,
+so success cannot be committed without its response (it is deferred because the
+Run is updated before the response is inserted in the same transaction).
+Messages and Runs cannot be deleted individually while their Conversation
+exists; deleting the Conversation still cascades to its whole history, because
+the guard allows deletes only once the parent row is gone.
 
 [ConversationService](../backend/src/services/ConversationService.ts) resolves
 the Assistant's active Production Deployment when a conversation starts

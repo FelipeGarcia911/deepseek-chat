@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { sql } from "kysely";
 import { test, type TestContext } from "vitest";
-import ConversationService from "../src/services/ConversationService";
+import ConversationService, { type RunCompletion } from "../src/services/ConversationService";
 import { createMigratedDatabase, publishAssistant } from "./database";
 
 const firstPage = { limit: 20 };
@@ -93,11 +93,16 @@ test("should admit only one run at a time when messages arrive concurrently", as
 
 test("should finish failed, cancelled and expired runs without a response and keep them terminal", async (t) => {
   const { db, service, conversation } = await conversationFixture(t);
-  for (const outcome of ["failed", "cancelled", "expired"] as const) {
-    const { runId } = await service.acceptUserMessage(conversation.id, `Will be ${outcome}`);
-    const error = outcome === "cancelled" ? undefined : { code: "PROVIDER_TIMEOUT", message: "Synthetic failure" };
-    await service.finishRun(runId, outcome, error);
-    await assert.rejects(service.finishRun(runId, "failed", error), { code: "INVALID_STATE" });
+  const error = { code: "PROVIDER_TIMEOUT", message: "Synthetic failure" };
+  const completions: RunCompletion[] = [
+    { outcome: "failed", error },
+    { outcome: "cancelled" },
+    { outcome: "expired", error },
+  ];
+  for (const completion of completions) {
+    const { runId } = await service.acceptUserMessage(conversation.id, `Will be ${completion.outcome}`);
+    await service.finishRun(runId, completion);
+    await assert.rejects(service.finishRun(runId, { outcome: "failed", error }), { code: "INVALID_STATE" });
     await assert.rejects(service.startRun(runId, { provider: "ollama", model: "llama3" }), { code: "INVALID_STATE" });
     await assert.rejects(service.completeRun(runId, { content: "Late answer" }), { code: "INVALID_STATE" });
     await assert.rejects(
@@ -147,7 +152,7 @@ test("should reject responses without a succeeded run and invalid run transition
   await assert.rejects(db.updateTable("messages").set({ content: "Edited" }).where("id", "=", message.id).execute(), {
     code: "23001",
   });
-  await service.finishRun(runId, "cancelled");
+  await service.finishRun(runId, { outcome: "cancelled" });
   const { runId: answered } = await succeed(service, conversation.id, "Follow-up", "Answer");
   await assert.rejects(
     db
@@ -222,4 +227,45 @@ test("should reject conversation targets that do not match their kind or assista
     .returning("target_kind")
     .executeTakeFirstOrThrow();
   assert.equal(preview.target_kind, "draft_snapshot");
+});
+
+test("should return the same single response when a run is completed concurrently", async (t) => {
+  const { db, service, conversation } = await conversationFixture(t);
+  const { runId } = await service.acceptUserMessage(conversation.id, "Question");
+  await service.startRun(runId, { provider: "ollama", model: "llama3" });
+  const [first, second] = await Promise.all([
+    service.completeRun(runId, { content: "Answer" }),
+    service.completeRun(runId, { content: "Racing answer" }),
+  ]);
+  assert.deepEqual(first, second);
+  const responses = await db.selectFrom("messages").select("content").where("run_id", "=", runId).execute();
+  assert.equal(responses.length, 1);
+});
+
+test("should refuse to commit a succeeded run without its response", async (t) => {
+  const { db, service, conversation } = await conversationFixture(t);
+  const { runId } = await service.acceptUserMessage(conversation.id, "Question");
+  await service.startRun(runId, { provider: "ollama", model: "llama3" });
+  await assert.rejects(
+    db.updateTable("runs").set({ status: "succeeded", finished_at: new Date() }).where("id", "=", runId).execute(),
+    /succeeded run .* must have exactly one response/
+  );
+  const run = await db.selectFrom("runs").select("status").where("id", "=", runId).executeTakeFirstOrThrow();
+  assert.equal(run.status, "running");
+});
+
+test("should reject deleting messages or runs individually while their conversation exists", async (t) => {
+  const { db, service, conversation } = await conversationFixture(t);
+  const { runId, response } = await succeed(service, conversation.id, "Question", "Answer");
+  await assert.rejects(db.deleteFrom("messages").where("id", "=", response.id).execute(), {
+    code: "23001",
+    message: /messages rows can only be deleted with their conversation/,
+  });
+  await assert.rejects(db.deleteFrom("runs").where("id", "=", runId).execute(), {
+    code: "23001",
+    message: /runs rows can only be deleted with their conversation/,
+  });
+  assert.equal((await db.selectFrom("messages").select("id").execute()).length, 2);
+  await service.deleteConversation(conversation.id);
+  assert.deepEqual(await db.selectFrom("runs").select("id").execute(), []);
 });

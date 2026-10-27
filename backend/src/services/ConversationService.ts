@@ -9,7 +9,12 @@ import { decodeCursor, toPage, type Page } from "../pagination";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const sequencePattern = /^[1-9]\d{0,9}$/;
 
-type RunOutcome = "failed" | "cancelled" | "expired";
+export interface RunError {
+  code: string;
+  message: string;
+}
+
+export type RunCompletion = { outcome: "failed" | "expired"; error: RunError } | { outcome: "cancelled" };
 
 interface ConversationRow {
   id: string;
@@ -240,11 +245,12 @@ class ConversationService {
     });
   }
 
-  async finishRun(runId: string, outcome: RunOutcome, error?: { code: string; message: string }): Promise<void> {
+  async finishRun(runId: string, completion: RunCompletion): Promise<void> {
+    const error = completion.outcome === "cancelled" ? undefined : completion.error;
     const result = await this.db
       .updateTable("runs")
       .set({
-        status: outcome,
+        status: completion.outcome,
         finished_at: new Date(),
         error_code: error?.code ?? null,
         error_message: error?.message ?? null,

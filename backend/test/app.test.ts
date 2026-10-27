@@ -261,5 +261,5 @@ test("should report the composed application as not ready until its database is 
   const { api } = compose(t, url);
   const response = await api.get("/health/ready");
   assertProblem(response, 503, "DEPENDENCY_UNAVAILABLE");
-  assert.equal(response.body.detail, "The database has 4 pending migration(s).");
+  assert.equal(response.body.detail, "The database has 5 pending migration(s).");
 });
