@@ -17,15 +17,15 @@ Current endpoints. Shapes come from
 [`packages/shared/src/conversations.ts`](../packages/shared/src/conversations.ts):
 identifiers are UUIDs, collections are `{ items, nextCursor }` pages with
 `limit` (default 20, max 100) and opaque `cursor`, and messages are
-`{ id, role, content, createdAt }`.
+`{ id, role, content, createdAt }`. Summaries are `{ id, assistantId, title, status, createdAt }`.
 
-| Method   | Path                                                      | Success                           |
-| -------- | --------------------------------------------------------- | --------------------------------- |
-| `GET`    | `/api/v1/admin/conversations`                             | 200, page, newest first           |
-| `DELETE` | `/api/v1/admin/conversations/{conversationId}`            | 204                               |
-| `POST`   | `/api/v1/runtime/conversations`                           | 201, summary                      |
-| `GET`    | `/api/v1/runtime/conversations/{conversationId}/messages` | 200, page, oldest first           |
-| `POST`   | `/api/v1/runtime/conversations/{conversationId}/messages` | assistant `Message`; 503 until P3 |
+| Method   | Path                                                       | Success                                                                                |
+| -------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET`    | `/api/v1/admin/conversations`                              | 200, page, newest first                                                                |
+| `DELETE` | `/api/v1/admin/conversations/{conversationId}`             | 204                                                                                    |
+| `POST`   | `/api/v1/runtime/assistants/{assistantSlug}/conversations` | 201, summary pinned to the Production version; 404 unknown, 409 archived or undeployed |
+| `GET`    | `/api/v1/runtime/conversations/{conversationId}/messages`  | 200, page, oldest first                                                                |
+| `POST`   | `/api/v1/runtime/conversations/{conversationId}/messages`  | assistant `Message`; 503 until P3                                                      |
 
 Listing every conversation and deleting history are operator actions, so they
 live in the control plane. A runtime caller only acts on a conversation it

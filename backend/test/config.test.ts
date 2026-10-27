@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { test } from "vitest";
 import { ConfigurationError, loadConfig } from "../src/config";
 
@@ -7,10 +6,8 @@ const environment = {
   NODE_ENV: "development",
   PORT: "4000",
   CORS_ORIGINS: "http://localhost:5173",
-  CHAT_STORAGE_PATH: "./data/chats.json",
   DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
 };
-const backendDirectory = path.resolve(__dirname, "..");
 
 test("should return typed platform configuration that is deeply immutable for its scalar and origin-list values", () => {
   const config = loadConfig(environment);
@@ -18,7 +15,6 @@ test("should return typed platform configuration that is deeply immutable for it
     nodeEnv: "development",
     port: 4000,
     corsOrigins: ["http://localhost:5173"],
-    chatStoragePath: path.join(backendDirectory, "data/chats.json"),
     databaseUrl: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
   });
   assert.ok(Object.isFrozen(config));
@@ -92,20 +88,6 @@ for (const value of [
   });
 }
 
-for (const value of ["data/", "chats.txt", "bad\0path.json", "bad\npath.json"]) {
-  test(`should reject invalid storage path ${JSON.stringify(value)}`, () => {
-    assert.throws(() => loadConfig({ ...environment, CHAT_STORAGE_PATH: value }), /CHAT_STORAGE_PATH:/);
-  });
-}
-
-test("should resolve storage paths against the backend package rather than cwd or the services directory", () => {
-  assert.equal(loadConfig(environment).chatStoragePath, path.resolve(backendDirectory, "data/chats.json"));
-  const explicitBase = path.resolve("alternate-backend");
-  assert.equal(loadConfig(environment, explicitBase).chatStoragePath, path.join(explicitBase, "data/chats.json"));
-  const absolute = path.resolve("absolute-store.json");
-  assert.equal(loadConfig({ ...environment, CHAT_STORAGE_PATH: absolute }, explicitBase).chatStoragePath, absolute);
-});
-
 test("should aggregate configuration errors without exposing supplied values", () => {
   assert.throws(
     () =>
@@ -113,7 +95,6 @@ test("should aggregate configuration errors without exposing supplied values", (
         NODE_ENV: "",
         PORT: "invalid",
         CORS_ORIGINS: "https://user:private-value@example.test",
-        CHAT_STORAGE_PATH: "",
         DATABASE_URL: "postgres://user:private-value@",
       }),
     (error) => {

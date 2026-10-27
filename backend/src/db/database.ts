@@ -11,3 +11,11 @@ export function createDatabase(databaseUrl: string): Database {
   });
   return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
 }
+
+const unavailableCodes = new Set(["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "57P01", "57P03", "53300"]);
+
+export function isDatabaseUnavailable(error: unknown): boolean {
+  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  if (typeof code === "string" && (unavailableCodes.has(code) || code.startsWith("08"))) return true;
+  return typeof message === "string" && /timeout exceeded when trying to connect|Connection terminated/.test(message);
+}

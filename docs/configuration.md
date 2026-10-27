@@ -23,27 +23,22 @@ It does not read `process.env`, load dotenv, inspect files or start services.
 The returned object and its origin list are frozen; parsing leaves the supplied
 environment object unchanged.
 
-All five settings are required. No implicit defaults or prototype compatibility
+All four settings are required. No implicit defaults or prototype compatibility
 fallbacks are provided:
 
-| Variable            | Validation                                                                                        | Typed result                                            |
-| ------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `NODE_ENV`          | `development`, `test` or `production`.                                                            | `config.nodeEnv`.                                       |
-| `PORT`              | Decimal integer from 1 to 65535; zero, fractional, negative and out-of-range values are rejected. | Numeric `config.port`.                                  |
-| `CORS_ORIGINS`      | Comma-separated HTTP(S) origins; no wildcards, credentials, paths, query or fragment.             | Normalized, deduplicated readonly `config.corsOrigins`. |
-| `CHAT_STORAGE_PATH` | Non-empty `.json` file path without null bytes or line breaks.                                    | Absolute `config.chatStoragePath`.                      |
-| `DATABASE_URL`      | `postgres://` or `postgresql://` URL with a host and database name; never echoed in errors.       | `config.databaseUrl`; see [database](database.md).      |
+| Variable       | Validation                                                                                        | Typed result                                            |
+| -------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `NODE_ENV`     | `development`, `test` or `production`.                                                            | `config.nodeEnv`.                                       |
+| `PORT`         | Decimal integer from 1 to 65535; zero, fractional, negative and out-of-range values are rejected. | Numeric `config.port`.                                  |
+| `CORS_ORIGINS` | Comma-separated HTTP(S) origins; no wildcards, credentials, paths, query or fragment.             | Normalized, deduplicated readonly `config.corsOrigins`. |
+| `DATABASE_URL` | `postgres://` or `postgresql://` URL with a host and database name; never echoed in errors.       | `config.databaseUrl`; see [database](database.md).      |
 
 Outer whitespace is trimmed. Origin normalization lowercases hostnames,
 removes default ports and a root trailing slash. For example,
 `HTTPS://EXAMPLE.COM:443/` becomes `https://example.com`.
 
-Relative storage paths resolve against the **backend package directory**, not
-the shell working directory or services directory. `./data/chats.json` selects
-`backend/data/chats.json` under both ts-node and compiled execution. Absolute
-paths are supported. Composition creates the parent directory when necessary;
-no prototype data is migrated automatically. The local `backend/data/` directory
-is ignored by Git.
+`CHAT_STORAGE_PATH` was removed in P2.4 with the JSON store; prototype data is
+discarded ([ADR-003](adr/003-use-kysely-with-sql-first-migrations.md#prototype-data)).
 
 The previous prototype's storage and global model environment settings are
 removed. Update existing env files to the current example instead of relying

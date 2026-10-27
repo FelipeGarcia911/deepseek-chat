@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { sql } from "kysely";
 import { test, vi } from "vitest";
 import { main, runDatabaseCommand } from "../src/db/cli";
-import { createDatabase } from "../src/db/database";
+import { createDatabase, isDatabaseUnavailable } from "../src/db/database";
 import { migrateToLatest, pendingMigrations } from "../src/db/migrator";
 import { environmentKeys, seed } from "../src/db/seed";
 import HealthService from "../src/services/HealthService";
@@ -12,8 +12,18 @@ const migrationNames = [
   "0001_create_workspaces_and_environments",
   "0002_create_assistant_release_model",
   "0003_harden_release_model_invariants",
+  "0004_create_conversations_messages_runs",
 ];
-const releaseTables = ["active_deployments", "assistant_drafts", "assistant_versions", "assistants", "deployments"];
+const releaseTables = [
+  "active_deployments",
+  "assistant_drafts",
+  "assistant_versions",
+  "assistants",
+  "conversations",
+  "deployments",
+  "messages",
+  "runs",
+];
 
 async function tableNames(db: ReturnType<typeof createDatabase>) {
   const { rows } = await sql<{ table_name: string }>`
@@ -71,7 +81,7 @@ test("should report readiness without creating tables and only once migrations a
   const { db } = await createEmptyDatabase(t);
   assert.deepEqual(await new HealthService(db).checkReadiness(), {
     ready: false,
-    reason: "The database has 3 pending migration(s).",
+    reason: "The database has 4 pending migration(s).",
   });
   assert.deepEqual(await tableNames(db), []);
   await migrateToLatest(db);
@@ -183,4 +193,19 @@ test("should report not ready when the migration state cannot be read", async (t
     ready: false,
     reason: "The database is unreachable or its migration state cannot be read.",
   });
+});
+
+test("should classify connection failures as an unavailable database and other errors as not", () => {
+  for (const error of [
+    { code: "ECONNREFUSED" },
+    { code: "08006" },
+    { code: "57P01" },
+    new Error("timeout exceeded when trying to connect"),
+    new Error("Connection terminated unexpectedly"),
+  ]) {
+    assert.equal(isDatabaseUnavailable(error), true, JSON.stringify(error));
+  }
+  for (const error of [undefined, null, { code: "23505" }, { code: 8006 }, new Error("syntax error"), "ECONNREFUSED"]) {
+    assert.equal(isDatabaseUnavailable(error), false, String(error));
+  }
 });

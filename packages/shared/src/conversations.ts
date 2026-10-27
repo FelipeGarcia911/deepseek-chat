@@ -17,6 +17,15 @@ export function Page<T extends z.ZodType>(item: T) {
   return z.object({ items: z.array(item), nextCursor: z.string().nullable() });
 }
 
+export const AssistantSlug = z
+  .string()
+  .min(3)
+  .max(63)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Must be lowercase letters, digits and single hyphens.");
+
+export const AssistantParams = z.strictObject({ assistantSlug: AssistantSlug });
+export type AssistantParams = z.infer<typeof AssistantParams>;
+
 export const ConversationParams = z.strictObject({ conversationId: ResourceId });
 export type ConversationParams = z.infer<typeof ConversationParams>;
 
@@ -25,7 +34,13 @@ export const CreateConversationRequest = z.strictObject({
 });
 export type CreateConversationRequest = z.infer<typeof CreateConversationRequest>;
 
-export const ConversationSummary = z.object({ id: ResourceId, title: z.string(), createdAt: z.iso.datetime() });
+export const ConversationSummary = z.object({
+  id: ResourceId,
+  assistantId: ResourceId,
+  title: z.string(),
+  status: z.enum(["open", "closed"]),
+  createdAt: z.iso.datetime(),
+});
 export type ConversationSummary = z.infer<typeof ConversationSummary>;
 
 export const ConversationPage = Page(ConversationSummary);

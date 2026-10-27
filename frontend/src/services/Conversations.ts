@@ -20,10 +20,12 @@ export interface Conversation extends ConversationSummary {
 class ConversationService {
   private adminUrl: string;
   private runtimeUrl: string;
+  private assistantsUrl: string;
 
   constructor(apiBaseUrl: string) {
     this.adminUrl = `${apiBaseUrl}/v1/admin/conversations`;
     this.runtimeUrl = `${apiBaseUrl}/v1/runtime/conversations`;
+    this.assistantsUrl = `${apiBaseUrl}/v1/runtime/assistants`;
   }
 
   private async readAll<T>(url: string, schema: { parse(data: unknown): { items: T[]; nextCursor: string | null } }) {
@@ -43,8 +45,9 @@ class ConversationService {
     return summaries.map((summary) => ({ ...summary, messages: [] }));
   }
 
-  async createConversation(title: string): Promise<Conversation> {
-    const response = await send(axios.post(this.runtimeUrl, { title }));
+  async createConversation(assistantSlug: string, title: string): Promise<Conversation> {
+    const url = `${this.assistantsUrl}/${encodeURIComponent(assistantSlug)}/conversations`;
+    const response = await send(axios.post(url, { title }));
     return { ...ConversationSummary.parse(response.data), messages: [] };
   }
 

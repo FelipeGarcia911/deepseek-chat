@@ -59,7 +59,12 @@ test("should use the configured origin and API path prefix", async (t) => {
       );
       return;
     }
-    res.end(JSON.stringify({ items: [{ id: conversationId, title: "Test chat", createdAt }], nextCursor: null }));
+    res.end(
+      JSON.stringify({
+        items: [{ id: conversationId, assistantId: conversationId, title: "Test chat", status: "open", createdAt }],
+        nextCursor: null,
+      })
+    );
   });
   t.onTestFinished(
     () => new Promise<void>((resolve, reject) => api.close((error) => (error ? reject(error) : resolve())))
@@ -76,7 +81,7 @@ test("should use the configured origin and API path prefix", async (t) => {
   t.onTestFinished(() => vite.close());
   const { default: service } = await vite.ssrLoadModule("/src/services/Conversations.ts");
   assert.deepEqual(await service.listConversations(), [
-    { id: conversationId, title: "Test chat", createdAt, messages: [] },
+    { id: conversationId, assistantId: conversationId, title: "Test chat", status: "open", createdAt, messages: [] },
   ]);
   assert.deepEqual(paths, ["/platform/api/v1/admin/conversations?limit=100"]);
   await assert.rejects(service.sendMessage(conversationId, "Synthetic question"), (error) => {

@@ -4,7 +4,7 @@ import service from "../src/services/Conversations";
 
 const id = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
 const createdAt = "2026-10-26T12:00:00.000Z";
-const summary = { id, title: "Synthetic chat", createdAt };
+const summary = { id, assistantId: id, title: "Synthetic chat", status: "open", createdAt };
 const question = { id, role: "user", content: "Stored question", createdAt };
 const answer = { id, role: "assistant", content: "Synthetic answer", createdAt };
 const page = <T>(items: T[], nextCursor: string | null = null) => ({ data: { items, nextCursor } });
@@ -18,7 +18,7 @@ it("should send listing and deletion to the admin API and conversation traffic t
   const remove = vi.spyOn(axios, "delete").mockResolvedValue({ status: 204, data: "" });
   expect(await service.listConversations()).toEqual([{ ...summary, messages: [] }]);
   expect(await service.listMessages(id)).toEqual([question]);
-  expect(await service.createConversation(summary.title)).toEqual({ ...summary, messages: [] });
+  expect(await service.createConversation("support", summary.title)).toEqual({ ...summary, messages: [] });
   expect(await service.sendMessage(id, "Synthetic question")).toEqual(answer);
   await service.deleteConversation(id);
   const params = { params: { limit: 100, cursor: undefined } };
@@ -27,7 +27,7 @@ it("should send listing and deletion to the admin API and conversation traffic t
     [`/api/v1/runtime/conversations/${id}/messages`, params],
   ]);
   expect(post.mock.calls).toEqual([
-    ["/api/v1/runtime/conversations", { title: summary.title }],
+    ["/api/v1/runtime/assistants/support/conversations", { title: summary.title }],
     [`/api/v1/runtime/conversations/${id}/messages`, { content: "Synthetic question" }],
   ]);
   expect(remove).toHaveBeenCalledWith(`/api/v1/admin/conversations/${id}`);
@@ -50,7 +50,7 @@ it("should propagate request failures instead of returning empty results", async
   vi.spyOn(axios, "delete").mockRejectedValue(error);
   await expect(service.listConversations()).rejects.toBe(error);
   await expect(service.listMessages(id)).rejects.toBe(error);
-  await expect(service.createConversation("Synthetic chat")).rejects.toBe(error);
+  await expect(service.createConversation("support", "Synthetic chat")).rejects.toBe(error);
   await expect(service.deleteConversation(id)).rejects.toBe(error);
   await expect(service.sendMessage(id, "Synthetic question")).rejects.toBe(error);
 });
@@ -63,7 +63,7 @@ it("should reject responses that do not match the shared contract", async () => 
   vi.spyOn(axios, "delete").mockResolvedValue({ status: 200, data: { message: "Deleted" } });
   await expect(service.listConversations()).rejects.toThrow();
   await expect(service.listMessages(id)).rejects.toThrow();
-  await expect(service.createConversation("Synthetic chat")).rejects.toThrow();
+  await expect(service.createConversation("support", "Synthetic chat")).rejects.toThrow();
   await expect(service.sendMessage(id, "Synthetic question")).rejects.toThrow();
   await expect(service.deleteConversation(id)).rejects.toThrow("Expected 204 No Content, received 200.");
 });

@@ -13,9 +13,9 @@ function renderHome() {
   const store = configureStore({ reducer: { chat: chatReducer } });
   render(
     <Provider store={store}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/c/support"]}>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/c/:assistantSlug" element={<Home />} />
           <Route path="/chat/test-chat" element={<h1>Created conversation</h1>} />
         </Routes>
       </MemoryRouter>
@@ -37,13 +37,15 @@ describe("conversation creation", () => {
     await user.type(screen.getByRole("textbox"), "Test conversation");
     await user.click(screen.getByRole("button", { name: "Crear Chat" }));
 
-    expect(createChat).toHaveBeenCalledExactlyOnceWith("Test conversation");
+    expect(createChat).toHaveBeenCalledExactlyOnceWith("support", "Test conversation");
     expect(screen.getByRole("textbox")).toBeDisabled();
     expect(screen.getByRole("button")).toBeDisabled();
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
 
     const chat: Conversation = {
       id: "test-chat",
+      assistantId: "assistant-1",
+      status: "open",
       title: "Test conversation",
       createdAt: "2026-10-26T12:00:00.000Z",
       messages: [],
@@ -68,7 +70,7 @@ describe("conversation creation", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "Crear Chat" })).toBeEnabled();
     });
-    expect(createChat).toHaveBeenCalledExactlyOnceWith("Test conversation");
+    expect(createChat).toHaveBeenCalledExactlyOnceWith("support", "Test conversation");
     expect(errorLog).toHaveBeenCalledOnce();
     expect(screen.getByRole("textbox")).toHaveValue("Test conversation");
     expect(screen.queryByRole("heading", { name: "Created conversation" })).toBeNull();
@@ -79,6 +81,8 @@ describe("conversation creation", () => {
 it("should ignore blank titles and create a conversation with Enter", async () => {
   const createChat = vi.spyOn(ChatService, "createConversation").mockResolvedValue({
     id: "test-chat",
+    assistantId: "assistant-1",
+    status: "open",
     title: "Keyboard chat",
     createdAt: "2026-10-26T12:00:00.000Z",
     messages: [],
@@ -89,5 +93,19 @@ it("should ignore blank titles and create a conversation with Enter", async () =
   expect(createChat).not.toHaveBeenCalled();
   await user.type(screen.getByRole("textbox"), "Keyboard chat{Enter}");
   expect(await screen.findByRole("heading", { name: "Created conversation" })).toBeVisible();
-  expect(createChat).toHaveBeenCalledExactlyOnceWith("Keyboard chat");
+  expect(createChat).toHaveBeenCalledExactlyOnceWith("support", "Keyboard chat");
+});
+
+it("should explain how to start when no assistant is selected", () => {
+  render(
+    <Provider store={configureStore({ reducer: { chat: chatReducer } })}>
+      <MemoryRouter>
+        <Routes>
+          <Route path="/" element={<Home />} />
+        </Routes>
+      </MemoryRouter>
+    </Provider>
+  );
+  expect(screen.getByText("Abre /c/<asistente> para empezar una conversación.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Crear Chat" })).toBeNull();
 });

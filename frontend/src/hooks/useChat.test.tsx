@@ -14,7 +14,16 @@ it("should ignore empty or unknown-chat input and dispatch only a valid question
     reducer: { chat: reducer },
     preloadedState: {
       chat: {
-        chats: [{ id: "known", title: "Synthetic chat", createdAt: "2026-10-26T12:00:00.000Z", messages: [] }],
+        chats: [
+          {
+            id: "known",
+            assistantId: "assistant-1",
+            status: "open" as const,
+            title: "Synthetic chat",
+            createdAt: "2026-10-26T12:00:00.000Z",
+            messages: [],
+          },
+        ],
         isLoadingChats: false,
         isSendingMessage: false,
       },

@@ -24,13 +24,13 @@ create directories or open ports.
 `server.ts` loads dotenv only when executed as the entry point. It passes
 `process.env` once to the pure parser, then passes `AppConfig` explicitly into
 composition. The parser's node environment and CORS list are passed to HTTP
-setup; the storage service receives only its absolute path. Application services,
+setup; services receive the shared `Database`. Application services,
 controllers and routes do not inspect process environment.
 
-Storage is initialized before listening. Relative `CHAT_STORAGE_PATH` values
-resolve from the backend package, so source and compiled execution select the
-same file. `backend/data/` is ignored by Git. No prototype path fallback or
-automatic data migration is provided.
+Composition creates one PostgreSQL `Database` from `DATABASE_URL` and passes it
+to every service; connecting is lazy, so composition does not touch the
+database. It returns `{ app, close }`, and shutdown closes the pool after HTTP
+requests drain. No prototype data is migrated.
 
 ## HTTP behavior
 
@@ -68,10 +68,7 @@ No Ollama instance, fake model provider or provider contract is required.
 Frontend/component coverage is documented in [test foundations](testing.md);
 backend lint is part of the shared [quality gates](quality-gates.md).
 
-The file store still replaces complete history, treats read errors as an empty
-store and logs write failures without propagating them. It is not suitable
-for concurrent writers or multiple API processes; persistence work will
-replace it. Request validation, application services, authentication and
+Persistence is transactional PostgreSQL; see [database](database.md). Request validation, application services, authentication and
 structured telemetry remain in their assigned roadmap phases. The previous
 Vite bundle-size warning remains.
 

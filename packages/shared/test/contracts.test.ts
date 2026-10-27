@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AssistantParams,
   ConversationPage,
   ConversationParams,
   CreateConversationRequest,
@@ -55,7 +56,7 @@ describe("conversation contracts", () => {
   });
 
   it("should validate pages, strip undeclared members and reject legacy message shapes", () => {
-    const summary = { id, title: "Chat", createdAt };
+    const summary = { id, assistantId: id, title: "Chat", status: "open", createdAt };
     expect(ConversationPage.parse({ items: [{ ...summary, internal: true }], nextCursor: null })).toEqual({
       items: [summary],
       nextCursor: null,
@@ -65,6 +66,15 @@ describe("conversation contracts", () => {
     expect(MessagePage.safeParse({ items: [{ ...message, role: "bot" }], nextCursor: null }).success).toBe(false);
     expect(MessagePage.safeParse({ items: [{ text: "Hi", sender: "user" }], nextCursor: null }).success).toBe(false);
     expect(ConversationPage.safeParse([summary]).success).toBe(false);
+  });
+});
+
+describe("assistant contracts", () => {
+  it("should accept stable public slugs and reject anything else", () => {
+    expect(AssistantParams.parse({ assistantSlug: "customer-support" })).toEqual({ assistantSlug: "customer-support" });
+    for (const assistantSlug of ["ab", "Support", "two--hyphens", "-edge", `x${"y".repeat(63)}`, "with space"]) {
+      expect(AssistantParams.safeParse({ assistantSlug }).success).toBe(false);
+    }
   });
 });
 

@@ -26,6 +26,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
+            <Route path="c/:assistantSlug" element={<Home />} />
             <Route path="chat/:id" element={<ChatPage />} />
           </Route>
         </Routes>

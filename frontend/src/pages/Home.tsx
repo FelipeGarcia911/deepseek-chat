@@ -1,11 +1,11 @@
 import { Box, TextField, Button, Typography, CircularProgress } from "@mui/material";
 import { useState } from "react";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { AppDispatch } from "../store";
 import { createChat } from "../store/reducers/Chat";
 
-const Home = () => {
+const CreateConversation = ({ assistantSlug }: { assistantSlug: string }) => {
   const [chatName, setChatName] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +18,7 @@ const Home = () => {
     setLoading(true);
 
     try {
-      const newChat = await dispatch(createChat(chatName)).unwrap();
+      const newChat = await dispatch(createChat({ assistantSlug, title: chatName })).unwrap();
       navigate(`/chat/${newChat.id}`);
     } catch (error) {
       console.error("❌ Error al crear chat:", error);
@@ -47,6 +47,20 @@ const Home = () => {
       </Button>
     </Box>
   );
+};
+
+const Home = () => {
+  const { assistantSlug } = useParams<{ assistantSlug: string }>();
+
+  if (!assistantSlug) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}>
+        <Typography>Abre /c/&lt;asistente&gt; para empezar una conversación.</Typography>
+      </Box>
+    );
+  }
+
+  return <CreateConversation key={assistantSlug} assistantSlug={assistantSlug} />;
 };
 
 export default Home;

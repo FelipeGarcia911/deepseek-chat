@@ -70,14 +70,14 @@ See the official [Vitest guide](https://vitest.dev/guide/),
 
 ## Test pyramid and regression coverage
 
-| Layer                     | Environment                                           | Existing behavior protected                                                                                                                                                                                                                    |
-| ------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit                      | Node                                                  | Backend/frontend configuration validation, accumulated errors, normalization, immutability and rejected-generation state. No network, files or child processes.                                                                                |
-| HTTP integration          | Node, Supertest, real Express and ConversationService | Conversation creation/list/messages/deletion, cursor pagination, admin/runtime route separation, CORS, input validation, generation's 503 without history changes and isolation of two applications. JSON files live in temporary directories. |
-| Contract                  | Node and the shared Zod schemas                       | UUID identifiers, title and message limits, page limits and cursors, rejection of prototype message shapes, strict request bodies, response shapes and tolerance of unknown problem codes.                                                     |
-| Dependency failure        | Node, Supertest and a failing service stub            | An untyped service failure produces `INTERNAL_ERROR` without internal details; a typed error keeps its stable code and status; the application remains usable.                                                                                 |
-| Component                 | jsdom and real React components                       | Button/Enter submission, empty input, Shift+Enter, message display, assistant Markdown, loading, conversation creation/navigation and recovery after creation failure.                                                                         |
-| Process/build integration | Node, child processes and local HTTP fixtures         | Imports without application side effects, executable env-file loading, process precedence, startup errors, port conflicts, SIGINT/SIGTERM draining, frontend service URL selection and production bundling.                                    |
+| Layer                     | Environment                                           | Existing behavior protected                                                                                                                                                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit                      | Node                                                  | Backend/frontend configuration validation, accumulated errors, normalization, immutability and rejected-generation state. No network, files or child processes.                                                                                                                                     |
+| HTTP integration          | Node, Supertest, real Express and ConversationService | Conversation creation for published, archived and undeployed Assistants, list/messages/deletion, cursor pagination, admin/runtime route separation, CORS, input validation, generation's 503 without history changes and isolation of two applications. Each test uses its own PostgreSQL database. |
+| Contract                  | Node and the shared Zod schemas                       | UUID identifiers, title and message limits, page limits and cursors, rejection of prototype message shapes, strict request bodies, response shapes and tolerance of unknown problem codes.                                                                                                          |
+| Dependency failure        | Node, Supertest and a failing service stub            | An untyped service failure produces `INTERNAL_ERROR` without internal details; a typed error keeps its stable code and status; the application remains usable.                                                                                                                                      |
+| Component                 | jsdom and real React components                       | Button/Enter submission, empty input, Shift+Enter, message display, assistant Markdown, loading, conversation creation/navigation and recovery after creation failure.                                                                                                                              |
+| Process/build integration | Node, child processes and local HTTP fixtures         | Imports without application side effects, executable env-file loading, process precedence, startup errors, port conflicts, SIGINT/SIGTERM draining, frontend service URL selection and production bundling.                                                                                         |
 
 End-to-end browser testing is deferred. jsdom does not check layout, CSS
 appearance or browser rendering. The setup supplies a no-op `scrollIntoView`
@@ -109,10 +109,12 @@ contracts and provider doubles belong to P3.1.
 
 Do not replace router, controller and storage together in the CRUD test:
 that would stop checking whether those pieces actually integrate. Keep the
-real file-backed service for successful HTTP flows, and inject a failing
+real PostgreSQL-backed service for successful HTTP flows, and inject a failing
 service only when testing error handling. The stub tests exercise a
-service throwing. A separate HTTP test removes the temporary storage directory
-to produce a real write failure and checks the `DEPENDENCY_UNAVAILABLE` problem.
+service throwing. A separate HTTP test points the application at a closed port
+and checks that an unreachable database is a `DEPENDENCY_UNAVAILABLE` problem.
+Persistence tests in `conversations.test.ts` run concurrent message admission
+against the real database to prove that only one Run is accepted.
 
 Supertest starts a server when a request is created, so tests that loop over
 several requests store functions that create them, not the requests themselves.

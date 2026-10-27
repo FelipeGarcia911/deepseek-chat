@@ -62,6 +62,19 @@ export interface AssistantVersions {
   workspace_id: string;
 }
 
+export interface Conversations {
+  assistant_id: string;
+  assistant_version_id: string | null;
+  created_at: Generated<Timestamp>;
+  draft_snapshot: Json | null;
+  id: Generated<string>;
+  status: Generated<string>;
+  target_kind: string;
+  title: string;
+  updated_at: Generated<Timestamp>;
+  workspace_id: string;
+}
+
 export interface Deployments {
   assistant_id: string;
   assistant_version_id: string;
@@ -80,6 +93,33 @@ export interface Environments {
   workspace_id: string;
 }
 
+export interface Messages {
+  content: string;
+  conversation_id: string;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  role: string;
+  run_id: string | null;
+  sequence: number;
+  workspace_id: string;
+}
+
+export interface Runs {
+  accepted_at: Generated<Timestamp>;
+  conversation_id: string;
+  error_code: string | null;
+  error_message: string | null;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  model: string | null;
+  provider: string | null;
+  started_at: Timestamp | null;
+  status: Generated<string>;
+  trigger_message_id: string;
+  usage: Json | null;
+  workspace_id: string;
+}
+
 export interface Workspaces {
   created_at: Generated<Timestamp>;
   id: Generated<string>;
@@ -92,7 +132,10 @@ export interface DB {
   assistant_drafts: AssistantDrafts;
   assistant_versions: AssistantVersions;
   assistants: Assistants;
+  conversations: Conversations;
   deployments: Deployments;
   environments: Environments;
+  messages: Messages;
+  runs: Runs;
   workspaces: Workspaces;
 }

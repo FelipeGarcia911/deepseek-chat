@@ -11,9 +11,12 @@ export const fetchChatHistory = createAsyncThunk("chat/fetchChatHistory", async 
   return { chatId, messages };
 });
 
-export const createChat = createAsyncThunk("chat/createChat", async (title: string) => {
-  return await ConversationService.createConversation(title);
-});
+export const createChat = createAsyncThunk(
+  "chat/createChat",
+  async ({ assistantSlug, title }: { assistantSlug: string; title: string }) => {
+    return await ConversationService.createConversation(assistantSlug, title);
+  }
+);
 
 export const deleteChat = createAsyncThunk("chat/deleteChat", async (chatId: string) => {
   await ConversationService.deleteConversation(chatId);

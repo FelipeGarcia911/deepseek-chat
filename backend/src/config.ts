@@ -1,5 +1,3 @@
-import path from "node:path";
-
 export enum NodeEnvironment {
   Development = "development",
   Test = "test",
@@ -10,7 +8,6 @@ export interface AppConfig {
   readonly nodeEnv: NodeEnvironment;
   readonly port: number;
   readonly corsOrigins: readonly string[];
-  readonly chatStoragePath: string;
   readonly databaseUrl: string;
 }
 
@@ -30,10 +27,7 @@ export function isDatabaseUrl(value: string): boolean {
   }
 }
 
-export function loadConfig(
-  environment: Readonly<NodeJS.ProcessEnv>,
-  backendDirectory = path.resolve(__dirname, "..")
-): AppConfig {
+export function loadConfig(environment: Readonly<NodeJS.ProcessEnv>): AppConfig {
   const issues: string[] = [];
   const required = (name: string) => {
     const value = environment[name]?.trim() || "";
@@ -81,11 +75,6 @@ export function loadConfig(
     }
   }
 
-  const storageValue = required("CHAT_STORAGE_PATH");
-  if (storageValue && (/[\0\r\n]/.test(storageValue) || path.extname(storageValue).toLowerCase() !== ".json")) {
-    issues.push("CHAT_STORAGE_PATH: must name a JSON file without null bytes or line breaks.");
-  }
-
   const databaseUrl = required("DATABASE_URL");
   if (databaseUrl && !isDatabaseUrl(databaseUrl)) {
     issues.push("DATABASE_URL: must be a postgres:// or postgresql:// URL with a host and database name.");
@@ -96,7 +85,6 @@ export function loadConfig(
     nodeEnv,
     port,
     corsOrigins: Object.freeze(corsOrigins),
-    chatStoragePath: path.resolve(backendDirectory, storageValue),
     databaseUrl,
   });
 }

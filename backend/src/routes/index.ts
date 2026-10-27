@@ -1,5 +1,11 @@
 import express from "express";
-import { ConversationParams, CreateConversationRequest, PageQuery, SendMessageRequest } from "@chat-app/shared";
+import {
+  AssistantParams,
+  ConversationParams,
+  CreateConversationRequest,
+  PageQuery,
+  SendMessageRequest,
+} from "@chat-app/shared";
 import type ConversationController from "../controllers/ConversationController";
 import { handle, validate } from "../http";
 
@@ -16,7 +22,11 @@ function createAdminRouter(controller: ConversationController) {
 
 function createRuntimeRouter(controller: ConversationController) {
   const router = express.Router();
-  router.post("/conversations", validate({ body: CreateConversationRequest }), handle(controller.createConversation));
+  router.post(
+    "/assistants/:assistantSlug/conversations",
+    validate({ params: AssistantParams, body: CreateConversationRequest }),
+    handle(controller.createConversation)
+  );
   router.get(
     "/conversations/:conversationId/messages",
     validate({ params: ConversationParams, query: PageQuery }),

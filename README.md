@@ -7,8 +7,11 @@ configuring, publishing and inspecting versioned RAG Assistants. See the
 
 ## Current behavior
 
-The backend starts without a configured model. Conversation list, creation,
-history and deletion work with temporary JSON persistence. Generation is
+The backend starts without a configured model. Conversations, messages and
+runs are stored in PostgreSQL. A conversation is created for a published
+Assistant at `/c/<assistantSlug>` and pinned to its current Production version;
+until the administration screens exist (P4/P5), no Assistant is published by
+default, so creation answers 404 for unknown slugs. Generation is
 intentionally unavailable until Model Profiles and model-gateway contracts
 are implemented. Sending a message returns:
 
@@ -63,20 +66,17 @@ update them to the current examples: the old global model and prototype
 storage variables are not supported. No prototype data is migrated automatically.
 
 Docker is required for PostgreSQL; see [database](docs/database.md). The
-backend requires these five **platform** settings:
+backend requires these four **platform** settings:
 
 ```dotenv
 NODE_ENV=development
 PORT=4000
 CORS_ORIGINS=http://localhost:5173
-CHAT_STORAGE_PATH=./data/chats.json
 DATABASE_URL=postgres://chat_app:chat_app@localhost:5432/chat_app
 ```
 
 Ports must be integers in 1–65535. Origins are normalized HTTP(S) origins,
-separated by commas; wildcards and URL paths are rejected. Relative storage
-paths resolve from `backend/`, consistently in development and compiled runs.
-The parent directory is created when needed; `backend/data/` is ignored by Git.
+separated by commas; wildcards and URL paths are rejected.
 
 The frontend requires a **public** API base, including `/api` but excluding
 `/v1`:
@@ -95,7 +95,7 @@ See [configuration](docs/configuration.md) for validation and precedence.
 
 `/health/live` reports that the process serves HTTP. `/health/ready` reports
 whether PostgreSQL answers and has no pending migrations; it returns 503 until
-`pnpm db:migrate` has run. The conversation list still exercises the JSON store:
+`pnpm db:migrate` has run. The conversation list exercises the database:
 
 ```sh
 curl --fail http://localhost:4000/health/live
@@ -140,8 +140,7 @@ requests without Origin remain available to local tools.
 
 Tests need no real model or provider credentials. They use temporary storage
 and local ports. The existing Vite bundle-size warning remains visible and is
-documented in [quality gates](docs/quality-gates.md). JSON persistence is not
-safe for concurrent writers; PostgreSQL work is planned in phase 2.
+documented in [quality gates](docs/quality-gates.md).
 
 ## Configuration ownership and workspace
 

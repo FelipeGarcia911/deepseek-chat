@@ -1,12 +1,7 @@
 import { randomUUID } from "node:crypto";
-import {
-  errorCatalog,
-  problemContentType,
-  type ErrorCode,
-  type PageQuery,
-  type ProblemDetails,
-} from "@chat-app/shared";
+import { errorCatalog, problemContentType, type ErrorCode, type ProblemDetails } from "@chat-app/shared";
 import type { ErrorRequestHandler, Request, RequestHandler, Response } from "express";
+import { isDatabaseUnavailable } from "./db/database";
 import { AppError } from "./errors";
 
 interface Schema {
@@ -47,20 +42,6 @@ export function validate(schemas: { params?: Schema; query?: Schema; body?: Sche
   };
 }
 
-const encodeCursor = (id: string) => Buffer.from(id).toString("base64url");
-
-export function paginate<T extends { id: string }>(items: T[], { limit, cursor }: PageQuery) {
-  let start = 0;
-  if (cursor !== undefined) {
-    const index = items.findIndex((item) => encodeCursor(item.id) === cursor);
-    if (index < 0) throw new AppError("VALIDATION_FAILED", "The cursor is invalid or no longer available.");
-    start = index + 1;
-  }
-  const page = items.slice(start, start + limit);
-  const hasMore = start + limit < items.length;
-  return { items: page, nextCursor: hasMore ? encodeCursor(page[page.length - 1].id) : null };
-}
-
 export function handle(handler: (req: Request, res: Response) => Promise<void>): RequestHandler {
   return (req, res, next) => {
     handler(req, res).catch(next);
@@ -93,5 +74,6 @@ export const handleError: ErrorRequestHandler = (error: unknown, _req, res, _nex
     return;
   }
   console.error(`Request ${res.locals.requestId} failed:`, error);
-  sendProblem(res, "INTERNAL_ERROR", "An unexpected error occurred.");
+  if (isDatabaseUnavailable(error)) sendProblem(res, "DEPENDENCY_UNAVAILABLE", "The database is unavailable.");
+  else sendProblem(res, "INTERNAL_ERROR", "An unexpected error occurred.");
 };

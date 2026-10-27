@@ -399,6 +399,8 @@ Still incomplete or only partial:
 
 **General description:** Replace JSON storage with transactional conversation records connected to the deployed Assistant Version.
 
+**Implementation:** Migration `0004_create_conversations_messages_runs` and a PostgreSQL `ConversationService` replace the JSON store, which is deleted together with `CHAT_STORAGE_PATH` (P2.6's cutover is done here; prototype data is discarded). Conversations start at `POST /api/v1/runtime/assistants/{assistantSlug}/conversations` and pin the active Production Version; unknown, archived and undeployed Assistants are 404/409. The frontend creates conversations from `/c/:assistantSlug`; no demo Assistant is seeded. Message sequences, one active Run per Conversation, succeeded-only responses, one response per Run and terminal immutability are enforced by constraints and triggers; concurrent admission is tested against real PostgreSQL. See [database](database.md#conversations-messages-and-runs).
+
 **Acceptance criteria:**
 
 - Published-version Conversations pin `assistantVersionId` at creation; Draft previews need explicit snapshot targets rather than invented Version IDs.

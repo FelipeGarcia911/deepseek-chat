@@ -3,7 +3,7 @@
 **Status:** P2.2, October 27, 2026. Follows
 [ADR-003](adr/003-use-kysely-with-sql-first-migrations.md): Kysely over
 node-postgres, SQL-first migrations, generated types and forward-only policy.
-Conversations still use the JSON file store until P2.4.
+PostgreSQL is the only storage since P2.4; the JSON store was removed.
 
 ## Local setup
 
@@ -83,7 +83,31 @@ Deployment and the active lookup must match the same Assistant and Environment.
 Named constraints (`deployments_version_fkey`, `active_deployments_deployment_fkey`
 and others) keep violations recognizable. `updated_at` is maintained by a
 `set_updated_at` trigger; immutable rows fail with SQLSTATE `23001`
-(`restrict_violation`). Migration `0003_harden_release_model_invariants` adds defense in depth:
+(`restrict_violation`). ### Conversations, messages and runs
+
+Migration `0004_create_conversations_messages_runs` adds:
+
+| Table           | Purpose and constraints                                                                                                                                                                                        |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conversations` | `target_kind` `version` (with `assistant_version_id` of the same Assistant) or `draft_snapshot` (with a JSON object, no Version). The target, Assistant and Workspace are immutable. `status` `open`/`closed`. |
+| `messages`      | Unique `sequence` per Conversation gives deterministic order. Assistant Messages need `run_id`, user Messages must not have one; `run_id` is unique; content is immutable.                                     |
+| `runs`          | Start `accepted`; trigger allows only the lifecycle transitions; terminal Runs are immutable. One `accepted`/`running` Run per Conversation (partial unique index). `failed`/`expired` require `error_code`.   |
+
+A trigger rejects an assistant Message unless its Run is `succeeded`, and a
+Run must be triggered by a user Message of the same Conversation. Deleting a
+Conversation cascades to its Messages and Runs (explicit admin deletion).
+
+[ConversationService](../backend/src/services/ConversationService.ts) resolves
+the Assistant's active Production Deployment when a conversation starts
+(`SELECT ... FOR SHARE` on the Assistant), allocates message sequences while
+holding the Conversation row lock, admits one Run at a time, and commits a
+succeeded Run with its single assistant Message in one transaction. A repeated
+completion returns the existing response. These run operations are exercised by
+persistence tests; the HTTP send endpoint still answers 503 until P3.
+
+### Release model hardening
+
+Migration `0003_harden_release_model_invariants` adds defense in depth:
 `assistants.id`, `workspace_id` and `slug` never change (the slug is the stable
 public URL); a Draft never changes `assistant_id` or `workspace_id`, and every
 update must advance `revision` by exactly one; a Deployment cannot name itself

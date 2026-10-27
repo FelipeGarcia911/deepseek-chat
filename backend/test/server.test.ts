@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, request, type ClientRequest } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, test, type TestContext } from "vitest";
+import { createMigratedDatabase, publishAssistant } from "./database";
 beforeAll(() => {
   const require = createRequire(import.meta.url);
   execFileSync(process.execPath, [require.resolve("typescript/bin/tsc")], {
@@ -27,27 +28,26 @@ async function availablePort() {
   return String(port);
 }
 
-type Environment = NodeJS.ProcessEnv | ((storagePath: string) => NodeJS.ProcessEnv);
-type EnvFile = string | ((storagePath: string) => string);
+type Environment = NodeJS.ProcessEnv | ((databaseUrl: string) => NodeJS.ProcessEnv);
+type EnvFile = string | ((databaseUrl: string) => string);
 
 async function launch(t: TestContext, environment: Environment = {}, envFile?: EnvFile) {
   const directory = await mkdtemp(path.join(tmpdir(), "chat-server-test-"));
-  const storagePath = path.join(directory, "chats.json");
-  await writeFile(storagePath, "[]");
+  const { db, url: databaseUrl } = await createMigratedDatabase(t);
+  await publishAssistant(db, "support");
   if (envFile === "directory") await mkdir(path.join(directory, ".env"));
   else if (envFile)
-    await writeFile(path.join(directory, ".env"), typeof envFile === "function" ? envFile(storagePath) : envFile);
+    await writeFile(path.join(directory, ".env"), typeof envFile === "function" ? envFile(databaseUrl) : envFile);
   const env = { ...process.env };
-  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH", "DATABASE_URL"]) delete env[key];
+  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "DATABASE_URL"]) delete env[key];
   if (!envFile)
     Object.assign(env, {
       NODE_ENV: "test",
       PORT: await availablePort(),
       CORS_ORIGINS: "https://allowed.example.test",
-      CHAT_STORAGE_PATH: storagePath,
-      DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
+      DATABASE_URL: databaseUrl,
     });
-  Object.assign(env, typeof environment === "function" ? environment(storagePath) : environment);
+  Object.assign(env, typeof environment === "function" ? environment(databaseUrl) : environment);
   const child = spawn(process.execPath, [serverPath], { cwd: directory, env, stdio: ["ignore", "pipe", "pipe"] });
   let output = "";
   child.stdout.on("data", (chunk) => {
@@ -86,7 +86,7 @@ async function launch(t: TestContext, environment: Environment = {}, envFile?: E
   return {
     child,
     exited,
-    storagePath,
+    db,
     output: () => output,
     waitForOutput,
     async ready() {
@@ -105,7 +105,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     let client!: ClientRequest;
     const pending = new Promise<{ status: number | undefined; body: { title: string } }>((resolve, reject) => {
       client = request(
-        `${url}/runtime/conversations`,
+        `${url}/runtime/assistants/support/conversations`,
         { method: "POST", headers: { "Content-Type": "application/json", Connection: "close" } },
         (res) => {
           let body = "";
@@ -121,7 +121,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     t.onTestFinished(() => {
       client.destroy();
     });
-    await running.waitForOutput(/POST \/api\/v1\/runtime\/conversations/);
+    await running.waitForOutput(/POST \/api\/v1\/runtime\/assistants\/support\/conversations/);
     running.child.kill(signal);
     await running.waitForOutput(new RegExp(`${signal} received: closing HTTP server`));
     await assert.rejects(fetch(`${url}/admin/conversations`));
@@ -136,7 +136,8 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
     assert.match(running.output(), /HTTP server closed/);
     assert.match(running.output(), /Database connections closed/);
     assert.doesNotMatch(running.output(), /Synthetic private title/);
-    assert.equal(JSON.parse(await readFile(running.storagePath, "utf8"))[0].title, "Synthetic private title");
+    const stored = await running.db.selectFrom("conversations").select("title").executeTakeFirstOrThrow();
+    assert.equal(stored.title, "Synthetic private title");
   });
 }
 
@@ -148,8 +149,8 @@ test(
     const running = await launch(
       t,
       {},
-      (storagePath) =>
-        `NODE_ENV=development\nPORT=${port}\nCORS_ORIGINS=https://from-file.example.test\nCHAT_STORAGE_PATH=${storagePath}\nDATABASE_URL=postgres://chat_app:chat_app@127.0.0.1:5432/chat_app\n`
+      (databaseUrl) =>
+        `NODE_ENV=development\nPORT=${port}\nCORS_ORIGINS=https://from-file.example.test\nDATABASE_URL=${databaseUrl}\n`
     );
     const url = await running.ready();
     const response = await fetch(`${url}/admin/conversations`, {
@@ -166,14 +167,13 @@ test("should prioritize process configuration over the env file", { timeout: 10_
   const port = await availablePort();
   const running = await launch(
     t,
-    (storagePath) => ({
+    (databaseUrl) => ({
       NODE_ENV: "test",
       PORT: port,
       CORS_ORIGINS: "https://from-process.example.test",
-      CHAT_STORAGE_PATH: storagePath,
-      DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
+      DATABASE_URL: databaseUrl,
     }),
-    "NODE_ENV=invalid\nPORT=invalid\nCORS_ORIGINS=invalid\nCHAT_STORAGE_PATH=invalid\nDATABASE_URL=invalid\n"
+    "NODE_ENV=invalid\nPORT=invalid\nCORS_ORIGINS=invalid\nDATABASE_URL=invalid\n"
   );
   const url = await running.ready();
   const response = await fetch(`${url}/admin/conversations`, {
@@ -189,11 +189,10 @@ test("should reject missing required platform settings before listening", { time
     NODE_ENV: "",
     PORT: "",
     CORS_ORIGINS: "",
-    CHAT_STORAGE_PATH: "",
     DATABASE_URL: "",
   });
   assert.equal((await running.exited)[0], 1);
-  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH", "DATABASE_URL"])
+  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "DATABASE_URL"])
     assert.match(running.output(), new RegExp(`${key}: required`));
   assert.doesNotMatch(running.output(), /Server running on/);
 });
@@ -206,12 +205,11 @@ test(
       NODE_ENV: "invalid",
       PORT: "0",
       CORS_ORIGINS: "https://user:private-value@example.test",
-      CHAT_STORAGE_PATH: "not-a-json-file",
       DATABASE_URL: "postgres://user:private-value@",
     });
     assert.equal((await running.exited)[0], 1);
     assert.match(running.output(), /Failed to start server:/);
-    for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH", "DATABASE_URL"])
+    for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "DATABASE_URL"])
       assert.match(running.output(), new RegExp(key));
     assert.doesNotMatch(running.output(), /private-value|example\.test|Server running on/);
   }

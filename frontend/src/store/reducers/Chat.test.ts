@@ -10,7 +10,16 @@ describe("chat state", () => {
       reducer: { chat: reducer },
       preloadedState: {
         chat: {
-          chats: [{ id: "test-chat", title: "Test chat", createdAt: "2026-10-26T12:00:00.000Z", messages: [] }],
+          chats: [
+            {
+              id: "test-chat",
+              assistantId: "assistant-1",
+              status: "open" as const,
+              title: "Test chat",
+              createdAt: "2026-10-26T12:00:00.000Z",
+              messages: [],
+            },
+          ],
           isLoadingChats: false,
           isSendingMessage: false,
         },
@@ -31,7 +40,14 @@ describe("chat state", () => {
 });
 
 it("should update conversations through successful service operations", async () => {
-  const chat = { id: "chat-1", title: "Synthetic chat", createdAt: "2026-10-26T12:00:00.000Z", messages: [] };
+  const chat = {
+    id: "chat-1",
+    assistantId: "assistant-1",
+    status: "open" as const,
+    title: "Synthetic chat",
+    createdAt: "2026-10-26T12:00:00.000Z",
+    messages: [],
+  };
   const message = {
     id: "m-1",
     role: "user" as const,
@@ -54,7 +70,7 @@ it("should update conversations through successful service operations", async ()
   expect(store.getState().chat.isLoadingChats).toBe(true);
   await listing;
   expect(store.getState().chat.isLoadingChats).toBe(false);
-  await store.dispatch(createChat("Synthetic chat"));
+  await store.dispatch(createChat({ assistantSlug: "support", title: "Synthetic chat" }));
   await store.dispatch(fetchChatHistory("chat-1"));
   expect(store.getState().chat.chats[0].messages).toEqual([message]);
   await store.dispatch(sendMessage({ chatId: "chat-1", message: "Synthetic question" }));
@@ -70,7 +86,9 @@ it("should release loading and preserve state when service operations reject", a
   vi.spyOn(ChatService, "deleteConversation").mockRejectedValue(new Error("Synthetic delete failure"));
   const store = configureStore({ reducer: { chat: reducer } });
   expect(fetchChats.rejected.match(await store.dispatch(fetchChats()))).toBe(true);
-  expect(createChat.rejected.match(await store.dispatch(createChat("Synthetic chat")))).toBe(true);
+  expect(
+    createChat.rejected.match(await store.dispatch(createChat({ assistantSlug: "support", title: "Synthetic chat" })))
+  ).toBe(true);
   expect(deleteChat.rejected.match(await store.dispatch(deleteChat("missing")))).toBe(true);
   expect(store.getState().chat).toEqual({ chats: [], isLoadingChats: false, isSendingMessage: false });
   expect(console.error).toHaveBeenCalledOnce();
