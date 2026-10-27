@@ -8,7 +8,11 @@ import { environmentKeys, seed } from "../src/db/seed";
 import HealthService from "../src/services/HealthService";
 import { createEmptyDatabase } from "./database";
 
-const migrationNames = ["0001_create_workspaces_and_environments", "0002_create_assistant_release_model"];
+const migrationNames = [
+  "0001_create_workspaces_and_environments",
+  "0002_create_assistant_release_model",
+  "0003_harden_release_model_invariants",
+];
 const releaseTables = ["active_deployments", "assistant_drafts", "assistant_versions", "assistants", "deployments"];
 
 async function tableNames(db: ReturnType<typeof createDatabase>) {
@@ -67,7 +71,7 @@ test("should report readiness without creating tables and only once migrations a
   const { db } = await createEmptyDatabase(t);
   assert.deepEqual(await new HealthService(db).checkReadiness(), {
     ready: false,
-    reason: "The database has 2 pending migration(s).",
+    reason: "The database has 3 pending migration(s).",
   });
   assert.deepEqual(await tableNames(db), []);
   await migrateToLatest(db);

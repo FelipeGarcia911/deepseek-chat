@@ -107,7 +107,7 @@ test("should keep drafts editable while advancing their revision and update time
   await rejects(
     db
       .updateTable("assistant_drafts")
-      .set({ settings: sql`'[]'::jsonb` })
+      .set({ settings: sql`'[]'::jsonb`, revision: saved.revision + 1 })
       .where("assistant_id", "=", assistantId),
     /assistant_drafts_settings_check/
   );
@@ -247,4 +247,86 @@ test("should enforce assistant slugs, names and status in the database", async (
     .executeTakeFirstOrThrow();
   assert.equal(archived.status, "archived");
   assert.ok(archived.updated_at > archived.created_at);
+});
+
+test("should keep assistant identity, workspace and slug immutable while name and status stay editable", async (t) => {
+  const { db, createAssistant } = await releaseFixture(t);
+  const assistantId = await createAssistant("support");
+  const other = await db
+    .insertInto("workspaces")
+    .values({ slug: "other", name: "Other workspace" })
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  for (const change of [
+    { slug: "renamed" },
+    { workspace_id: other.id },
+    { id: "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47" },
+  ]) {
+    await rejects(db.updateTable("assistants").set(change).where("id", "=", assistantId), immutable);
+  }
+  const updated = await db
+    .updateTable("assistants")
+    .set({ name: "Customer support", status: "archived" })
+    .where("id", "=", assistantId)
+    .returning(["slug", "name", "status"])
+    .executeTakeFirstOrThrow();
+  assert.deepEqual(updated, { slug: "support", name: "Customer support", status: "archived" });
+});
+
+test("should require each draft save to advance the revision by exactly one and keep its owner", async (t) => {
+  const { db, workspaceId, createAssistant } = await releaseFixture(t);
+  const assistantId = await createAssistant("support");
+  const otherAssistant = await createAssistant("sales");
+  await db.insertInto("assistant_drafts").values({ assistant_id: assistantId, workspace_id: workspaceId }).execute();
+  const draft = db.updateTable("assistant_drafts").where("assistant_id", "=", assistantId);
+  for (const revision of [1, 3, 0]) {
+    await rejects(draft.set({ instructions: "Skipped", revision }), /revision must advance from 1 to 2/);
+  }
+  await rejects(draft.set({ instructions: "No revision change" }), /revision must advance/);
+  await rejects(draft.set({ assistant_id: otherAssistant, revision: 2 }), immutable);
+  await rejects(draft.set({ workspace_id: sql<string>`gen_random_uuid()`, revision: 2 }), immutable);
+  const saved = await draft.set({ instructions: "Saved", revision: 2 }).returning("revision").executeTakeFirstOrThrow();
+  assert.equal(saved.revision, 2);
+  await rejects(draft.set({ revision: 1 }), /revision must advance from 2 to 3/);
+});
+
+test("should reject a deployment that names itself as its previous deployment", async (t) => {
+  const { db, workspaceId, environments, createAssistant, publish } = await releaseFixture(t);
+  const assistantId = await createAssistant("support");
+  const versionId = await publish(assistantId, 1);
+  const id = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
+  await rejects(
+    db.insertInto("deployments").values({
+      id,
+      workspace_id: workspaceId,
+      assistant_id: assistantId,
+      environment_id: environments.production,
+      assistant_version_id: versionId,
+      previous_deployment_id: id,
+      deployed_by: "admin",
+    }),
+    /deployments_previous_not_self/
+  );
+});
+
+test("should let the active lookup move only its deployment, never its scope", async (t) => {
+  const { db, environments, createAssistant, publish, deploy } = await releaseFixture(t);
+  const assistantId = await createAssistant("support");
+  const otherAssistant = await createAssistant("sales");
+  const first = await deploy(assistantId, await publish(assistantId, 1), environments.production);
+  const second = await deploy(assistantId, await publish(assistantId, 2), environments.production, first);
+  await activeLookup(db, { assistantId, environmentId: environments.production, deploymentId: first }).execute();
+  const lookup = db
+    .updateTable("active_deployments")
+    .where("assistant_id", "=", assistantId)
+    .where("environment_id", "=", environments.production);
+  for (const change of [
+    { environment_id: environments.staging },
+    { assistant_id: otherAssistant },
+    { workspace_id: sql<string>`gen_random_uuid()` },
+  ]) {
+    await rejects(lookup.set(change), immutable);
+  }
+  const moved = await lookup.set({ deployment_id: second }).returning("deployment_id").executeTakeFirstOrThrow();
+  assert.equal(moved.deployment_id, second);
 });

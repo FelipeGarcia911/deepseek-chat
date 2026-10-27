@@ -46,7 +46,7 @@ export async function main(argv: readonly string[]): Promise<void> {
   try {
     await runDatabaseCommand(argv[2], process.env);
   } catch (error) {
-    console.error((error as Error).message);
+    console.error(error);
     process.exitCode = 1;
   }
 }

@@ -83,7 +83,14 @@ Deployment and the active lookup must match the same Assistant and Environment.
 Named constraints (`deployments_version_fkey`, `active_deployments_deployment_fkey`
 and others) keep violations recognizable. `updated_at` is maintained by a
 `set_updated_at` trigger; immutable rows fail with SQLSTATE `23001`
-(`restrict_violation`). Model Profile and knowledge references arrive with P4.4
+(`restrict_violation`). Migration `0003_harden_release_model_invariants` adds defense in depth:
+`assistants.id`, `workspace_id` and `slug` never change (the slug is the stable
+public URL); a Draft never changes `assistant_id` or `workspace_id`, and every
+update must advance `revision` by exactly one; a Deployment cannot name itself
+as its previous Deployment; and the active lookup may only change
+`deployment_id`, never its Assistant, Environment or Workspace. Use cases still
+filter by the expected revision to detect concurrent edits; the trigger makes
+the sequence itself impossible to corrupt. Model Profile and knowledge references arrive with P4.4
 and P6. Writing these rows through use cases (revision checks, version
 numbering, moving the lookup atomically) belongs to P2.5 and P5.
 

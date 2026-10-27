@@ -2,10 +2,12 @@ import type { Kysely } from "kysely";
 import { Migrator } from "kysely/migration";
 import * as createWorkspacesAndEnvironments from "./migrations/0001_create_workspaces_and_environments";
 import * as createAssistantReleaseModel from "./migrations/0002_create_assistant_release_model";
+import * as hardenReleaseModelInvariants from "./migrations/0003_harden_release_model_invariants";
 
 const migrations = {
   "0001_create_workspaces_and_environments": createWorkspacesAndEnvironments,
   "0002_create_assistant_release_model": createAssistantReleaseModel,
+  "0003_harden_release_model_invariants": hardenReleaseModelInvariants,
 };
 
 export function createMigrator<T>(db: Kysely<T>) {

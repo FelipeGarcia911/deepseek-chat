@@ -382,7 +382,7 @@ Still incomplete or only partial:
 
 **General description:** Implement the relational model for the Workspace, Assistants, Drafts, Versions, Environments and Deployments.
 
-**Implementation:** Migration `0002_create_assistant_release_model` adds `assistants`, `assistant_drafts`, immutable `assistant_versions` and `deployments` (update/delete rejected by trigger) and the `active_deployments` lookup whose primary key allows one active Deployment per Assistant and Environment. Composite foreign keys including `workspace_id` enforce ownership; [database](database.md#schema-so-far) lists every constraint. Persistence tests prove draft revision updates, immutability, per-Assistant version numbering, the moving lookup and rejection of cross-Workspace, cross-Assistant and cross-Environment references.
+**Implementation:** Migration `0002_create_assistant_release_model` adds `assistants`, `assistant_drafts`, immutable `assistant_versions` and `deployments` (update/delete rejected by trigger) and the `active_deployments` lookup whose primary key allows one active Deployment per Assistant and Environment. Composite foreign keys including `workspace_id` enforce ownership; [database](database.md#schema-so-far) lists every constraint. Migration `0003_harden_release_model_invariants` makes Assistant identity/slug, Draft ownership and lookup scope immutable, requires Draft revisions to advance by exactly one and rejects self-referencing Deployments. Persistence tests prove draft revision updates, immutability, per-Assistant version numbering, the moving lookup and rejection of cross-Workspace, cross-Assistant and cross-Environment references.
 
 **Acceptance criteria:**
 
