@@ -53,7 +53,7 @@ Use **Kysely** over **node-postgres (`pg`)** with **SQL-first migrations** on
 **PostgreSQL 18** with the **pgvector** extension.
 
 - **The database schema is the source of truth.** Migrations live in
-  `backend/migrations/`, numbered and named (`0001_create_workspaces.ts`). Each
+  `backend/src/db/migrations/`, numbered and named (`0001_create_workspaces.ts`). Each
   exports an `up` that runs SQL through Kysely's `sql` template, so constraints,
   indexes and triggers read as plain SQL.
 - **Types are generated, not written.** `kysely-codegen` introspects a database

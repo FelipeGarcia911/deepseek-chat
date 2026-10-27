@@ -12,6 +12,7 @@ test("should provide a backend example containing only the required platform set
     PORT: "4000",
     CORS_ORIGINS: "http://localhost:5173",
     CHAT_STORAGE_PATH: "./data/chats.json",
+    DATABASE_URL: "postgres://chat_app:chat_app@localhost:5432/chat_app",
   });
   assert.doesNotThrow(() => loadConfig(example));
 });

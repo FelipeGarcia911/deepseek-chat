@@ -26,6 +26,10 @@ one fails. Ordinary `pnpm test` runs behavior checks without collecting
 coverage; its success alone does not satisfy the coverage requirement.
 `@chat-app/ui` must meet the same rule when it gains behavior.
 
+Backend tests need the Compose PostgreSQL (`docker compose up -d --wait`) or a
+server named by `TEST_DATABASE_URL`. Each database test creates and drops its
+own database; see [database](database.md#tests).
+
 Run the complete suite from the repository root:
 
 ```sh

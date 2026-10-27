@@ -2,18 +2,20 @@ import express from "express";
 import cors from "cors";
 import type { AppConfig } from "./config";
 import ConversationController, { type ConversationControllerDependencies } from "./controllers/ConversationController";
+import HealthController, { type HealthControllerDependencies } from "./controllers/HealthController";
 import { assignRequestId, handleError, notFound, sendProblem } from "./http";
 import { createRouter } from "./routes";
+import { createHealthRouter } from "./routes/HealthRoutes";
 
-export function createApp(
-  dependencies: ConversationControllerDependencies,
-  config: Pick<AppConfig, "nodeEnv" | "corsOrigins">
-) {
+export type AppDependencies = ConversationControllerDependencies & HealthControllerDependencies;
+
+export function createApp(dependencies: AppDependencies, config: Pick<AppConfig, "nodeEnv" | "corsOrigins">) {
   const app = express();
   const controller = new ConversationController(dependencies);
   app.set("env", config.nodeEnv);
 
   app.use(assignRequestId);
+  app.use("/health", createHealthRouter(new HealthController(dependencies)));
   app.use((req, res, next) => {
     const origin = req.get("Origin");
     if (origin !== undefined && !config.corsOrigins.includes(origin)) {

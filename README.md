@@ -53,19 +53,24 @@ npm install --global pnpm@12.14.0
 pnpm install --frozen-lockfile
 cp -n backend/.env.example backend/.env
 cp -n frontend/.env.example frontend/.env
+docker compose up -d --wait
+pnpm db:migrate
+pnpm db:seed
 ```
 
 The copy commands preserve existing files. If you already have env files,
 update them to the current examples: the old global model and prototype
 storage variables are not supported. No prototype data is migrated automatically.
 
-The backend requires these four **platform** settings:
+Docker is required for PostgreSQL; see [database](docs/database.md). The
+backend requires these five **platform** settings:
 
 ```dotenv
 NODE_ENV=development
 PORT=4000
 CORS_ORIGINS=http://localhost:5173
 CHAT_STORAGE_PATH=./data/chats.json
+DATABASE_URL=postgres://chat_app:chat_app@localhost:5432/chat_app
 ```
 
 Ports must be integers in 1–65535. Origins are normalized HTTP(S) origins,
@@ -88,18 +93,19 @@ See [configuration](docs/configuration.md) for validation and precedence.
 
 ## HTTP checks
 
-There is no dedicated `/health` or `/healthz` endpoint yet; the API root and
-`/api` are not health endpoints either. With the backend running, this checks
-HTTP plus the current conversation-list handler:
+`/health/live` reports that the process serves HTTP. `/health/ready` reports
+whether PostgreSQL answers and has no pending migrations; it returns 503 until
+`pnpm db:migrate` has run. The conversation list still exercises the JSON store:
 
 ```sh
+curl --fail http://localhost:4000/health/live
+curl --fail http://localhost:4000/health/ready
 curl --fail http://localhost:4000/api/v1/admin/conversations
 ```
 
 The response is a page, initially `{ "items": [], "nextCursor": null }`. It does not check a model or
 guarantee durable storage: the prototype file service recovers from read
-errors as an empty store. A dedicated liveness/readiness contract belongs to
-later operational work. Generation's deliberate 503 is not a failed startup.
+errors as an empty store. Generation's deliberate 503 is not a failed startup.
 
 ## Run and verify
 
@@ -163,6 +169,7 @@ components across the two surfaces of the same React app. Commit the root
 - [API surfaces: admin and runtime routes](docs/api-surfaces.md)
 - [ADR-002: API contract strategy](docs/adr/002-share-runtime-validated-api-contracts.md)
 - [ADR-003: PostgreSQL data access](docs/adr/003-use-kysely-with-sql-first-migrations.md)
+- [PostgreSQL database](docs/database.md)
 - [Architecture and MVP boundaries](docs/architecture.md)
 - [Execution roadmap](docs/roadmap.md)
 

@@ -365,6 +365,8 @@ Still incomplete or only partial:
 
 **General description:** Create a local PostgreSQL dependency, migration runner and deterministic seed process.
 
+**Implementation:** [Database](database.md) documents Docker Compose PostgreSQL 18 with pgvector, `DATABASE_URL`, and `pnpm db:migrate|db:seed|db:reset|db:types`. The first migration creates `workspaces` and `environments` with `uuidv7()` keys and constraints; the idempotent seed creates the `default` Workspace and its three Environments. The API never migrates on startup; `/health/live` is process-only and `/health/ready` reports database reachability and pending migrations. CI builds a clean database from migrations and fails on generated-type drift. Tests use a fresh database each.
+
 **Acceptance criteria:**
 
 - A clean database can be created entirely from versioned migrations.

@@ -17,7 +17,12 @@ requests, pushes to `main` and manual dispatch. It has one Ubuntu 24.04 job,
 3. **Frozen installation:** `pnpm install --frozen-lockfile` always executes,
    including after a cache hit. It validates manifest/lockfile consistency and
    links a fresh dependency tree.
-4. **Verification:** `pnpm verify` checks formatting, lint, application/test
+4. **Database:** a `pgvector/pgvector:pg18` service container provides
+   PostgreSQL. The job builds a clean database with `pnpm db:migrate` and
+   `pnpm db:seed`, then `db:types:check` fails if the committed generated types
+   differ from the migrated schema. Tests create their own databases on the
+   same server through `TEST_DATABASE_URL`.
+5. **Verification:** `pnpm verify` checks formatting, lint, application/test
    types, behavior tests with per-file 90% coverage, and production builds.
    Local and CI verification therefore share the same script and thresholds.
 

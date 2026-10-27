@@ -38,13 +38,14 @@ async function launch(t: TestContext, environment: Environment = {}, envFile?: E
   else if (envFile)
     await writeFile(path.join(directory, ".env"), typeof envFile === "function" ? envFile(storagePath) : envFile);
   const env = { ...process.env };
-  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH"]) delete env[key];
+  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH", "DATABASE_URL"]) delete env[key];
   if (!envFile)
     Object.assign(env, {
       NODE_ENV: "test",
       PORT: await availablePort(),
       CORS_ORIGINS: "https://allowed.example.test",
       CHAT_STORAGE_PATH: storagePath,
+      DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
     });
   Object.assign(env, typeof environment === "function" ? environment(storagePath) : environment);
   const child = spawn(process.execPath, [serverPath], { cwd: directory, env, stdio: ["ignore", "pipe", "pipe"] });
@@ -147,7 +148,7 @@ test(
       t,
       {},
       (storagePath) =>
-        `NODE_ENV=development\nPORT=${port}\nCORS_ORIGINS=https://from-file.example.test\nCHAT_STORAGE_PATH=${storagePath}\n`
+        `NODE_ENV=development\nPORT=${port}\nCORS_ORIGINS=https://from-file.example.test\nCHAT_STORAGE_PATH=${storagePath}\nDATABASE_URL=postgres://chat_app:chat_app@127.0.0.1:5432/chat_app\n`
     );
     const url = await running.ready();
     const response = await fetch(`${url}/admin/conversations`, {
@@ -169,8 +170,9 @@ test("should prioritize process configuration over the env file", { timeout: 10_
       PORT: port,
       CORS_ORIGINS: "https://from-process.example.test",
       CHAT_STORAGE_PATH: storagePath,
+      DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
     }),
-    "NODE_ENV=invalid\nPORT=invalid\nCORS_ORIGINS=invalid\nCHAT_STORAGE_PATH=invalid\n"
+    "NODE_ENV=invalid\nPORT=invalid\nCORS_ORIGINS=invalid\nCHAT_STORAGE_PATH=invalid\nDATABASE_URL=invalid\n"
   );
   const url = await running.ready();
   const response = await fetch(`${url}/admin/conversations`, {
@@ -182,9 +184,15 @@ test("should prioritize process configuration over the env file", { timeout: 10_
 });
 
 test("should reject missing required platform settings before listening", { timeout: 10_000 }, async (t) => {
-  const running = await launch(t, { NODE_ENV: "", PORT: "", CORS_ORIGINS: "", CHAT_STORAGE_PATH: "" });
+  const running = await launch(t, {
+    NODE_ENV: "",
+    PORT: "",
+    CORS_ORIGINS: "",
+    CHAT_STORAGE_PATH: "",
+    DATABASE_URL: "",
+  });
   assert.equal((await running.exited)[0], 1);
-  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH"])
+  for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH", "DATABASE_URL"])
     assert.match(running.output(), new RegExp(`${key}: required`));
   assert.doesNotMatch(running.output(), /Server running on/);
 });
@@ -198,10 +206,11 @@ test(
       PORT: "0",
       CORS_ORIGINS: "https://user:private-value@example.test",
       CHAT_STORAGE_PATH: "not-a-json-file",
+      DATABASE_URL: "postgres://user:private-value@",
     });
     assert.equal((await running.exited)[0], 1);
     assert.match(running.output(), /Failed to start server:/);
-    for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH"])
+    for (const key of ["NODE_ENV", "PORT", "CORS_ORIGINS", "CHAT_STORAGE_PATH", "DATABASE_URL"])
       assert.match(running.output(), new RegExp(key));
     assert.doesNotMatch(running.output(), /private-value|example\.test|Server running on/);
   }

@@ -18,7 +18,11 @@
     "test:coverage": "pnpm build:packages && pnpm -r --no-bail test:coverage",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build",
+    "db:migrate": "pnpm --filter backend db:migrate",
+    "db:seed": "pnpm --filter backend db:seed",
+    "db:reset": "pnpm --filter backend db:reset",
+    "db:types": "pnpm --filter backend db:types"
   },
   "devDependencies": {
     "@eslint/js": "9.19.0",

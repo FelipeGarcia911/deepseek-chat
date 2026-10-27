@@ -1,0 +1,83 @@
+# PostgreSQL database
+
+**Status:** P2.2, October 27, 2026. Follows
+[ADR-003](adr/003-use-kysely-with-sql-first-migrations.md): Kysely over
+node-postgres, SQL-first migrations, generated types and forward-only policy.
+Conversations still use the JSON file store until P2.4.
+
+## Local setup
+
+[docker-compose.yml](../docker-compose.yml) runs PostgreSQL 18 with pgvector,
+bound to `127.0.0.1:5432`, with local-only credentials `chat_app/chat_app`.
+
+```sh
+docker compose up -d --wait
+pnpm db:migrate
+pnpm db:seed
+```
+
+`backend/.env` needs `DATABASE_URL`; the example matches Compose. Data lives in
+the `postgres-data` volume. `docker compose down -v` deletes it.
+
+## Commands
+
+| Command           | Effect                                                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `pnpm db:migrate` | Applies pending migrations in one transaction under Kysely's migration lock. Prints what it applied.         |
+| `pnpm db:seed`    | Idempotently ensures the `default` Workspace and its `development`, `staging` and `production` Environments. |
+| `pnpm db:reset`   | Drops and recreates the `public` schema, then migrates and seeds. Refused when `NODE_ENV=production`.        |
+| `pnpm db:types`   | Regenerates [backend/src/db/schema.ts](../backend/src/db/schema.ts) from the migrated database.              |
+
+The API never migrates or seeds on startup. Production runs the compiled
+`node dist/db/cli.js migrate` explicitly before starting the new version (P8.4).
+
+## Adding a migration
+
+1. Add `backend/src/db/migrations/NNNN_description.ts` exporting `up`, with SQL
+   through Kysely's `sql` template, and register it in
+   [migrator.ts](../backend/src/db/migrator.ts). The explicit list works the
+   same under ts-node and compiled output.
+2. Run `pnpm db:migrate`, then `pnpm db:types`, and commit the regenerated
+   schema with the migration.
+3. Write code that uses the new tables only after regenerating types.
+
+Never edit a migration that ran outside your machine; add a corrective one.
+The generated `schema.ts` is excluded from Prettier so `--verify` compares the
+exact generator output. Column names stay `snake_case` in TypeScript, exactly
+as in SQL.
+
+## Health endpoints
+
+| Endpoint            | Meaning                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /health/live`  | The process serves HTTP. Never touches the database: `200 { "status": "ok" }`.                                                                                            |
+| `GET /health/ready` | The database answers and has no pending migrations: `200 { "status": "ready" }`, otherwise a 503 `DEPENDENCY_UNAVAILABLE` problem whose `detail` says which check failed. |
+
+[HealthService](../backend/src/services/HealthService.ts) implements both checks behind [HealthController](../backend/src/controllers/HealthController.ts) and [HealthRoutes](../backend/src/routes/HealthRoutes.ts), mounted at `/health` before CORS. Readiness only reads migration state; it never creates migration tables. The
+pool times out new connections after 2 seconds, lets the process exit when idle,
+and logs instead of crashing when the server closes an idle connection.
+
+## Schema so far
+
+| Table          | Purpose and constraints                                                                                       |
+| -------------- | ------------------------------------------------------------------------------------------------------------- |
+| `workspaces`   | `uuidv7()` id, unique lowercase `slug`, `name` of 1–120 characters. The seed owns the `default` row.          |
+| `environments` | `uuidv7()` id, `workspace_id` foreign key, `key` limited to the three MVP environments, unique per Workspace. |
+
+P2.3 adds Assistants, Drafts, Versions and Deployments.
+
+## TypeScript and module format
+
+Kysely 0.29 is published only as ESM. The backend still compiles to CommonJS,
+which Node 26 loads with `require(esm)`. The backend uses TypeScript 5.9 with
+`module` and `moduleResolution` set to `nodenext`, so TypeScript resolves
+package subpaths such as `kysely/migration`.
+
+## Tests
+
+Database tests need PostgreSQL. Each test creates its own empty database
+named `chat_app_test_<uuid>` through `TEST_DATABASE_URL` (default: the Compose
+database), and drops it with `force` when the test finishes. Tests prove that a
+clean database builds from migrations, that a failing migration applies
+nothing, that seed is idempotent, that constraints reject invalid rows, and
+that readiness follows migration state.

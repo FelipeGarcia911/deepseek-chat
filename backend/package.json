@@ -15,24 +15,33 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "eslint . --max-warnings 0",
-    "format:check": "pnpm --workspace-root exec prettier backend --check"
+    "format:check": "pnpm --workspace-root exec prettier backend --check",
+    "db:migrate": "ts-node src/db/cli.ts migrate",
+    "db:seed": "ts-node src/db/cli.ts seed",
+    "db:reset": "ts-node src/db/cli.ts reset",
+    "db:types": "kysely-codegen --dialect postgres --exclude-pattern \"kysely_*\" --out-file src/db/schema.ts",
+    "db:types:check": "kysely-codegen --dialect postgres --exclude-pattern \"kysely_*\" --out-file src/db/schema.ts --verify"
   },
   "dependencies": {
     "@chat-app/shared": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "kysely": "0.29.7",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^26.6.5",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "5.0.5",
+    "kysely-codegen": "0.20.0",
     "nodemon": "^3.1.9",
     "supertest": "^7.3.1",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.3",
+    "typescript": "5.9.3",
     "vite": "^6.4.5",
     "vitest": "^5.0.5"
   },

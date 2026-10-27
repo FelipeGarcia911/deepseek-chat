@@ -8,12 +8,19 @@ import request from "supertest";
 import { test, vi, type TestContext } from "vitest";
 import { loadConfig } from "../src/config";
 import { createApplication } from "../src/composition";
+import { createEmptyDatabase } from "./database";
 
 async function fixture(t: TestContext, origins = "https://allowed.example.test", nodeEnv = "test") {
   const directory = await mkdtemp(path.join(tmpdir(), "chat-app-test-"));
   t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
   const storagePath = path.join(directory, "nested/chats.json");
-  const config = loadConfig({ NODE_ENV: nodeEnv, PORT: "4000", CORS_ORIGINS: origins, CHAT_STORAGE_PATH: storagePath });
+  const config = loadConfig({
+    NODE_ENV: nodeEnv,
+    PORT: "4000",
+    CORS_ORIGINS: origins,
+    CHAT_STORAGE_PATH: storagePath,
+    DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
+  });
   const app = await createApplication(config);
   await writeFile(storagePath, "[]");
   return { app, config, storagePath, api: request(app) };
@@ -216,4 +223,21 @@ test("should return client problems for malformed and oversized JSON bodies", as
   assertProblem(malformed, 400, "VALIDATION_FAILED");
   const oversized = await api.post(`${runtime}`).send({ title: "x".repeat(40_000) });
   assertProblem(oversized, 413, "PAYLOAD_TOO_LARGE");
+});
+
+test("should report the composed application as not ready until its database is migrated", async (t) => {
+  const { url } = await createEmptyDatabase(t);
+  const directory = await mkdtemp(path.join(tmpdir(), "chat-app-test-"));
+  t.onTestFinished(() => rm(directory, { recursive: true, force: true }));
+  const config = loadConfig({
+    NODE_ENV: "test",
+    PORT: "4000",
+    CORS_ORIGINS: "https://allowed.example.test",
+    CHAT_STORAGE_PATH: path.join(directory, "chats.json"),
+    DATABASE_URL: url,
+  });
+  vi.spyOn(console, "warn").mockImplementation(() => {});
+  const response = await request(await createApplication(config)).get("/health/ready");
+  assertProblem(response, 503, "DEPENDENCY_UNAVAILABLE");
+  assert.equal(response.body.detail, "The database has 1 pending migration(s).");
 });

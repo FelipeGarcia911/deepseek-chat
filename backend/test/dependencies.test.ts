@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import request from "supertest";
 import { test, vi } from "vitest";
-import { createApp } from "../src/app";
+import { createApp, type AppDependencies } from "../src/app";
 import { NodeEnvironment } from "../src/config";
 import type { ConversationControllerDependencies } from "../src/controllers/ConversationController";
 import { AppError } from "../src/errors";
@@ -16,8 +16,16 @@ const cases = [
   { method: "deleteConversation", verb: "delete", route: `/admin/conversations/${conversationId}` },
 ] as const;
 
-function appWith(conversationService: ConversationServiceStub) {
-  return request(createApp({ conversationService }, { nodeEnv: NodeEnvironment.Test, corsOrigins: [] }));
+function appWith(
+  conversationService: ConversationServiceStub,
+  checkReadiness: AppDependencies["healthService"]["checkReadiness"] = async () => ({ ready: true })
+) {
+  return request(
+    createApp(
+      { conversationService, healthService: { checkReadiness } },
+      { nodeEnv: NodeEnvironment.Test, corsOrigins: [] }
+    )
+  );
 }
 
 function createTestApp(method: (typeof cases)[number]["method"], failure: () => never) {
@@ -85,4 +93,26 @@ test("should return an internal error problem when a response breaks its contrac
   assert.equal(response.body.code, "INTERNAL_ERROR");
   assert.doesNotMatch(JSON.stringify(response.body), /not-a-uuid/);
   assert.equal(errorLog.mock.calls.length, 1);
+});
+
+test("should report liveness without consulting the database", async () => {
+  const checkReadiness = vi.fn(async () => ({ ready: false as const, reason: "Unused." }));
+  await appWith({} as ConversationServiceStub, checkReadiness)
+    .get("/health/live")
+    .expect(200, { status: "ok" });
+  assert.equal(checkReadiness.mock.calls.length, 0);
+});
+
+test("should report readiness separately from liveness", async () => {
+  await appWith({} as ConversationServiceStub)
+    .get("/health/ready")
+    .expect(200, { status: "ready" });
+  const response = await appWith({} as ConversationServiceStub, async () => ({
+    ready: false,
+    reason: "The database is unreachable.",
+  }))
+    .get("/health/ready")
+    .expect(503);
+  assert.equal(response.body.code, "DEPENDENCY_UNAVAILABLE");
+  assert.equal(response.body.detail, "The database is unreachable.");
 });

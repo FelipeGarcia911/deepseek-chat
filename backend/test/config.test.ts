@@ -8,6 +8,7 @@ const environment = {
   PORT: "4000",
   CORS_ORIGINS: "http://localhost:5173",
   CHAT_STORAGE_PATH: "./data/chats.json",
+  DATABASE_URL: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
 };
 const backendDirectory = path.resolve(__dirname, "..");
 
@@ -18,6 +19,7 @@ test("should return typed platform configuration that is deeply immutable for it
     port: 4000,
     corsOrigins: ["http://localhost:5173"],
     chatStoragePath: path.join(backendDirectory, "data/chats.json"),
+    databaseUrl: "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app",
   });
   assert.ok(Object.isFrozen(config));
   assert.ok(Object.isFrozen(config.corsOrigins));
@@ -112,6 +114,7 @@ test("should aggregate configuration errors without exposing supplied values", (
         PORT: "invalid",
         CORS_ORIGINS: "https://user:private-value@example.test",
         CHAT_STORAGE_PATH: "",
+        DATABASE_URL: "postgres://user:private-value@",
       }),
     (error) => {
       assert.ok(error instanceof ConfigurationError);
@@ -121,4 +124,33 @@ test("should aggregate configuration errors without exposing supplied values", (
       return true;
     }
   );
+});
+
+for (const value of [
+  "mysql://chat_app:secret@localhost:3306/chat_app",
+  "postgres://localhost",
+  "postgres://localhost/",
+  "localhost:5432/chat_app",
+  "postgres://user:private-value@",
+]) {
+  test(`should reject invalid database URL ${value.replace(/:[^:@/]+@/, ":***@")} without exposing it`, () => {
+    assert.throws(
+      () => loadConfig({ ...environment, DATABASE_URL: value }),
+      (error) => {
+        assert.ok(error instanceof ConfigurationError);
+        assert.match(error.message, /DATABASE_URL: must be a postgres/);
+        assert.doesNotMatch(error.message, /secret|private-value|localhost/);
+        return true;
+      }
+    );
+  });
+}
+
+test("should accept postgres and postgresql database URLs", () => {
+  for (const value of [
+    "postgres://chat_app:chat_app@localhost:5432/chat_app",
+    "postgresql://db.internal/chat_app?sslmode=require",
+  ]) {
+    assert.equal(loadConfig({ ...environment, DATABASE_URL: value }).databaseUrl, value);
+  }
 });

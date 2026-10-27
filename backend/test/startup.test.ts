@@ -21,6 +21,7 @@ beforeEach(() => {
   vi.stubEnv("PORT", "4000");
   vi.stubEnv("CORS_ORIGINS", "http://localhost:5173");
   vi.stubEnv("CHAT_STORAGE_PATH", "./data/chats.json");
+  vi.stubEnv("DATABASE_URL", "postgres://chat_app:chat_app@127.0.0.1:5432/chat_app");
   vi.spyOn(dotenv, "config").mockReturnValue({ parsed: {} });
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});

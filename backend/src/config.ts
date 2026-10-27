@@ -11,12 +11,22 @@ export interface AppConfig {
   readonly port: number;
   readonly corsOrigins: readonly string[];
   readonly chatStoragePath: string;
+  readonly databaseUrl: string;
 }
 
 export class ConfigurationError extends Error {
   constructor(issues: readonly string[]) {
     super(`Invalid platform configuration:\n- ${issues.join("\n- ")}\nCheck backend/.env or the process environment.`);
     this.name = "ConfigurationError";
+  }
+}
+
+export function isDatabaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ["postgres:", "postgresql:"].includes(url.protocol) && Boolean(url.hostname) && url.pathname.length > 1;
+  } catch {
+    return false;
   }
 }
 
@@ -76,11 +86,17 @@ export function loadConfig(
     issues.push("CHAT_STORAGE_PATH: must name a JSON file without null bytes or line breaks.");
   }
 
+  const databaseUrl = required("DATABASE_URL");
+  if (databaseUrl && !isDatabaseUrl(databaseUrl)) {
+    issues.push("DATABASE_URL: must be a postgres:// or postgresql:// URL with a host and database name.");
+  }
+
   if (issues.length) throw new ConfigurationError(issues);
   return Object.freeze({
     nodeEnv,
     port,
     corsOrigins: Object.freeze(corsOrigins),
     chatStoragePath: path.resolve(backendDirectory, storageValue),
+    databaseUrl,
   });
 }

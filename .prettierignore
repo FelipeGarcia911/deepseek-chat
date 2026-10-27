@@ -6,3 +6,4 @@ backend/data/
 backend/src/logs/
 .env
 .pnpm-store/
+backend/src/db/schema.ts
