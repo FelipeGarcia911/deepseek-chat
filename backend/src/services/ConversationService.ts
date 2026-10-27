@@ -1,5 +1,12 @@
 import type { ConversationSummary, Message, PageQuery } from "@chat-app/shared";
 import { AppError } from "../errors";
+import {
+  assemblePrompt,
+  type AssembledPrompt,
+  type PromptHistoryMessage,
+  type PromptTarget,
+  type PromptTrace,
+} from "../runtime/prompt";
 import { decodeCursor, toPage, type Page } from "../pagination";
 
 export type RunStatus = "accepted" | "running" | "succeeded" | "failed" | "cancelled" | "expired";
@@ -22,6 +29,13 @@ export interface RunChanges {
   usage?: Record<string, number> | null;
   errorCode?: string | null;
   errorMessage?: string | null;
+  promptTrace?: PromptTrace;
+}
+
+export interface RunContext {
+  status: RunStatus;
+  target: PromptTarget;
+  history: PromptHistoryMessage[];
 }
 
 export interface ConversationStore {
@@ -49,6 +63,7 @@ export interface ConversationStore {
   findRun(runId: string, lock?: boolean): Promise<{ conversationId: string; status: RunStatus } | undefined>;
   updateRun(runId: string, from: RunStatus[], changes: RunChanges): Promise<boolean>;
   findResponse(runId: string): Promise<StoredMessage | undefined>;
+  findRunContext(runId: string): Promise<RunContext | undefined>;
 }
 
 export type UnitOfWork = <T>(work: (store: ConversationStore) => Promise<T>) => Promise<T>;
@@ -142,12 +157,20 @@ class ConversationService {
     });
   }
 
-  async startRun(runId: string, model: { provider: string; model: string }): Promise<void> {
+  async buildRunPrompt(runId: string): Promise<AssembledPrompt> {
+    const context = await this.store.findRunContext(runId);
+    if (!context) throw new AppError("NOT_FOUND", "Run not found.");
+    if (context.status !== "accepted") throw new AppError("INVALID_STATE", `The run is ${context.status}.`);
+    return assemblePrompt(context.target, context.history);
+  }
+
+  async startRun(runId: string, start: { provider: string; model: string; promptTrace: PromptTrace }): Promise<void> {
     const started = await this.store.updateRun(runId, ["accepted"], {
       status: "running",
       startedAt: new Date(),
-      provider: model.provider,
-      model: model.model,
+      provider: start.provider,
+      model: start.model,
+      promptTrace: start.promptTrace,
     });
     if (!started) throw new AppError("INVALID_STATE", "The run is not waiting to start.");
   }

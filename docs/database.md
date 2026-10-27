@@ -117,6 +117,15 @@ succeeded Run with its single assistant Message in one transaction. A repeated
 completion returns the existing response. These run operations are exercised by
 persistence tests; the HTTP send endpoint still answers 503 until P3.
 
+### Prompt traces
+
+Migration `0006_add_run_prompt_trace` adds `runs.prompt_trace` (a JSON object)
+and `runs_started_requires_prompt_trace`: a Run cannot be `running` or
+`succeeded` without the trace of the exact request sent to the model (policy
+version, pinned target, Message ids and SHA-256 fingerprint; see
+[prompt assembly](../backend/src/runtime/prompt.ts)). Changing the runtime policy
+text requires bumping `runtimePolicy.version`.
+
 ### Release model hardening
 
 Migration `0003_harden_release_model_invariants` adds defense in depth:

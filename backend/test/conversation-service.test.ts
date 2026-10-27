@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { assemblePrompt } from "../src/runtime/prompt";
 import ConversationService, { type AssistantTarget, type ConversationStore } from "../src/services/ConversationService";
 
 const id = "0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47";
@@ -22,6 +23,7 @@ function serviceWith(overrides: Partial<ConversationStore>) {
     findRun: unexpected,
     updateRun: unexpected,
     findResponse: unexpected,
+    findRunContext: unexpected,
     ...overrides,
   };
   return new ConversationService({ store, transaction: (work) => work(store) });
@@ -74,7 +76,8 @@ describe("conversation rules", () => {
 
   it("should refuse run transitions the store did not apply", async () => {
     const service = serviceWith({ updateRun: async () => false });
-    await expect(service.startRun(id, { provider: "ollama", model: "llama3" })).rejects.toMatchObject({
+    const promptTrace = assemblePrompt({ kind: "version", assistantVersionId: id, instructions: "" }, []).trace;
+    await expect(service.startRun(id, { provider: "ollama", model: "llama3", promptTrace })).rejects.toMatchObject({
       code: "INVALID_STATE",
     });
     await expect(service.finishRun(id, { outcome: "cancelled" })).rejects.toMatchObject({ code: "INVALID_STATE" });

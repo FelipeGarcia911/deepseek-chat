@@ -21,9 +21,15 @@ async function conversationFixture(t: TestContext) {
   return { db, assistant, service, conversation };
 }
 
+async function start(service: ConversationService, runId: string) {
+  const prompt = await service.buildRunPrompt(runId);
+  await service.startRun(runId, { provider: "ollama", model: "llama3", promptTrace: prompt.trace });
+  return prompt;
+}
+
 async function succeed(service: ConversationService, conversationId: string, question: string, answer: string) {
   const { runId } = await service.acceptUserMessage(conversationId, question);
-  await service.startRun(runId, { provider: "ollama", model: "llama3" });
+  await start(service, runId);
   return { runId, response: await service.completeRun(runId, { content: answer, usage: { outputTokens: 3 } }) };
 }
 
@@ -110,7 +116,7 @@ test("should finish failed, cancelled and expired runs without a response and ke
     const { runId } = await service.acceptUserMessage(conversation.id, `Will be ${completion.outcome}`);
     await service.finishRun(runId, completion);
     await assert.rejects(service.finishRun(runId, { outcome: "failed", error }), { code: "INVALID_STATE" });
-    await assert.rejects(service.startRun(runId, { provider: "ollama", model: "llama3" }), { code: "INVALID_STATE" });
+    await assert.rejects(service.buildRunPrompt(runId), { code: "INVALID_STATE" });
     await assert.rejects(service.completeRun(runId, { content: "Late answer" }), { code: "INVALID_STATE" });
     await assert.rejects(
       db.updateTable("runs").set({ status: "running", finished_at: null }).where("id", "=", runId).execute(),
@@ -239,7 +245,7 @@ test("should reject conversation targets that do not match their kind or assista
 test("should return the same single response when a run is completed concurrently", async (t) => {
   const { db, service, conversation } = await conversationFixture(t);
   const { runId } = await service.acceptUserMessage(conversation.id, "Question");
-  await service.startRun(runId, { provider: "ollama", model: "llama3" });
+  await start(service, runId);
   const [first, second] = await Promise.all([
     service.completeRun(runId, { content: "Answer" }),
     service.completeRun(runId, { content: "Racing answer" }),
@@ -252,7 +258,7 @@ test("should return the same single response when a run is completed concurrentl
 test("should refuse to commit a succeeded run without its response", async (t) => {
   const { db, service, conversation } = await conversationFixture(t);
   const { runId } = await service.acceptUserMessage(conversation.id, "Question");
-  await service.startRun(runId, { provider: "ollama", model: "llama3" });
+  await start(service, runId);
   await assert.rejects(
     db.updateTable("runs").set({ status: "succeeded", finished_at: new Date() }).where("id", "=", runId).execute(),
     /succeeded run .* must have exactly one response/
@@ -275,4 +281,56 @@ test("should reject deleting messages or runs individually while their conversat
   assert.equal((await db.selectFrom("messages").select("id").execute()).length, 2);
   await service.deleteConversation(conversation.id);
   assert.deepEqual(await db.selectFrom("runs").select("id").execute(), []);
+});
+
+test("should build the prompt from the pinned version instructions and the history up to the triggering message", async (t) => {
+  const { db, assistant, service, conversation } = await conversationFixture(t);
+  await succeed(service, conversation.id, "First question", "First answer");
+  const { runId, message } = await service.acceptUserMessage(conversation.id, "Second question");
+  await assistant.promote(2);
+  const prompt = await service.buildRunPrompt(runId);
+  assert.deepEqual(
+    prompt.messages.map(({ role, content }) => [role, content.split("\n").at(-1)]),
+    [
+      ["system", "Version 1"],
+      ["user", "First question"],
+      ["assistant", "First answer"],
+      ["user", "Second question"],
+    ]
+  );
+  assert.equal(prompt.trace.messageIds.at(-1), message.id);
+  assert.deepEqual(prompt.trace.target, { kind: "version", assistantVersionId: assistant.versionId });
+  await service.startRun(runId, { provider: "ollama", model: "llama3", promptTrace: prompt.trace });
+  const run = await db.selectFrom("runs").select("prompt_trace").where("id", "=", runId).executeTakeFirstOrThrow();
+  assert.deepEqual(run.prompt_trace, prompt.trace);
+  await assert.rejects(service.buildRunPrompt(runId), { code: "INVALID_STATE" });
+  await assert.rejects(service.buildRunPrompt("0192f1c4-8a1e-7c3a-9d52-3b0f6c1e2a47"), { code: "NOT_FOUND" });
+});
+
+test("should build the prompt of a draft preview from its captured snapshot", async (t) => {
+  const { db, assistant, service } = await conversationFixture(t);
+  const preview = await db
+    .insertInto("conversations")
+    .values({
+      workspace_id: sql<string>`(select id from workspaces where slug = 'default')`,
+      assistant_id: assistant.assistantId,
+      title: "Playground",
+      target_kind: "draft_snapshot",
+      draft_snapshot: { instructions: "Draft instructions", revision: 3 },
+    })
+    .returning("id")
+    .executeTakeFirstOrThrow();
+  const { runId } = await service.acceptUserMessage(preview.id, "Preview question");
+  const prompt = await service.buildRunPrompt(runId);
+  assert.match(prompt.messages[0].content, /## Assistant instructions\nDraft instructions$/);
+  assert.deepEqual(prompt.trace.target, { kind: "draft_snapshot", draftRevision: 3 });
+});
+
+test("should refuse to mark a run as running without its prompt trace", async (t) => {
+  const { db, service, conversation } = await conversationFixture(t);
+  const { runId } = await service.acceptUserMessage(conversation.id, "Question");
+  await assert.rejects(
+    db.updateTable("runs").set({ status: "running", started_at: new Date() }).where("id", "=", runId).execute(),
+    /runs_started_requires_prompt_trace/
+  );
 });

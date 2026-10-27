@@ -14,6 +14,7 @@ const migrationNames = [
   "0003_harden_release_model_invariants",
   "0004_create_conversations_messages_runs",
   "0005_harden_run_response_invariants",
+  "0006_add_run_prompt_trace",
 ];
 const releaseTables = [
   "active_deployments",
@@ -82,7 +83,7 @@ test("should report readiness without creating tables and only once migrations a
   const { db } = await createEmptyDatabase(t);
   assert.deepEqual(await new HealthService(db).checkReadiness(), {
     ready: false,
-    reason: "The database has 5 pending migration(s).",
+    reason: "The database has 6 pending migration(s).",
   });
   assert.deepEqual(await tableNames(db), []);
   await migrateToLatest(db);

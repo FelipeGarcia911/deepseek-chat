@@ -494,6 +494,8 @@ Still incomplete or only partial:
 
 **General description:** Construct every request from versioned instructions, conversation context and runtime policy without mutating stored history.
 
+**Implementation:** `backend/src/runtime/prompt.ts` holds `assemblePrompt`, a pure function: one `system` message (the versioned `runtimePolicy`, then the pinned Version or Draft-snapshot instructions when present), followed by the stored history up to the triggering user Message with roles, order and content unchanged and new objects only. It returns a trace with the policy version, the target (`assistantVersionId` or draft revision), the Message ids used and a SHA-256 fingerprint of the exact request. `ConversationService.buildRunPrompt` loads that context for an `accepted` Run, and `startRun` now requires the trace; migration `0006_add_run_prompt_trace` stores it in `runs.prompt_trace` and rejects `running`/`succeeded` Runs without it. Promotions after a Conversation starts do not change its prompt.
+
 **Acceptance criteria:**
 
 - System instructions are present on every request.

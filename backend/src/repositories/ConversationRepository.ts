@@ -1,5 +1,6 @@
 import type { ConversationSummary, Message } from "@chat-app/shared";
 import type { Selectable, Transaction } from "kysely";
+import { z } from "zod";
 import type { Database } from "../db/database";
 import type { DB } from "../db/schema";
 import { defaultWorkspaceSlug } from "../db/seed";
@@ -8,12 +9,18 @@ import type {
   ConversationStore,
   LockedConversation,
   RunChanges,
+  RunContext,
   RunStatus,
   StoredMessage,
   UnitOfWork,
 } from "../services/ConversationService";
 
 type Executor = Database | Transaction<DB>;
+
+const VersionTarget = z.object({ assistant_version_id: z.string(), instructions: z.string() });
+const DraftSnapshotTarget = z.object({
+  draft_snapshot: z.object({ instructions: z.string(), revision: z.number().int().positive() }),
+});
 
 const conversationColumns = ["id", "workspace_id", "assistant_id", "title", "status", "created_at"] as const;
 const messageColumns = ["id", "role", "content", "sequence", "created_at"] as const;
@@ -206,6 +213,7 @@ export class ConversationRepository implements ConversationStore {
         usage: changes.usage,
         error_code: changes.errorCode,
         error_message: changes.errorMessage,
+        prompt_trace: changes.promptTrace === undefined ? undefined : { ...changes.promptTrace },
       })
       .where("id", "=", runId)
       .where("status", "in", from)
@@ -220,6 +228,52 @@ export class ConversationRepository implements ConversationStore {
       .where("run_id", "=", runId)
       .executeTakeFirst();
     return row && toMessage(row);
+  }
+
+  async findRunContext(runId: string): Promise<RunContext | undefined> {
+    const run = await this.db
+      .selectFrom("runs as r")
+      .innerJoin("conversations as c", "c.id", "r.conversation_id")
+      .innerJoin("messages as m", "m.id", "r.trigger_message_id")
+      .leftJoin("assistant_versions as v", "v.id", "c.assistant_version_id")
+      .select([
+        "r.status",
+        "r.conversation_id",
+        "m.sequence",
+        "c.target_kind",
+        "c.assistant_version_id",
+        "c.draft_snapshot",
+        "v.instructions",
+      ])
+      .where("r.id", "=", runId)
+      .where("c.workspace_id", "=", this.workspaceId())
+      .executeTakeFirst();
+    if (!run) return undefined;
+    const history = await this.db
+      .selectFrom("messages")
+      .select(["id", "role", "content"])
+      .where("conversation_id", "=", run.conversation_id)
+      .where("sequence", "<=", run.sequence)
+      .orderBy("sequence")
+      .execute();
+    if (run.target_kind === "version") {
+      const version = VersionTarget.parse(run);
+      return {
+        status: run.status,
+        target: {
+          kind: "version",
+          assistantVersionId: version.assistant_version_id,
+          instructions: version.instructions,
+        },
+        history,
+      };
+    }
+    const { draft_snapshot: snapshot } = DraftSnapshotTarget.parse(run);
+    return {
+      status: run.status,
+      target: { kind: "draft_snapshot", draftRevision: snapshot.revision, instructions: snapshot.instructions },
+      history,
+    };
   }
 }
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "vitest";
 import { ConversationRepository, createUnitOfWork } from "../src/repositories/ConversationRepository";
+import { assemblePrompt } from "../src/runtime/prompt";
 import { createMigratedDatabase, publishAssistant } from "./database";
 
 async function repositoryFixture(t: TestContext) {
@@ -54,7 +55,13 @@ test("should append messages with increasing sequences and read them after a seq
   const runId = await repository.insertRun({ ...base, triggerMessageId: question.id });
   assert.equal(await repository.hasActiveRun(conversation.id), true);
   assert.equal(await repository.updateRun(runId, ["running"], { status: "succeeded" }), false);
-  assert.equal(await repository.updateRun(runId, ["accepted"], { status: "running", startedAt: new Date() }), true);
+  const prompt = await repository.findRunContext(runId);
+  assert.ok(prompt);
+  const promptTrace = assemblePrompt(prompt.target, prompt.history).trace;
+  assert.equal(
+    await repository.updateRun(runId, ["accepted"], { status: "running", startedAt: new Date(), promptTrace }),
+    true
+  );
   const answer = await createUnitOfWork(db)(async (store) => {
     assert.equal(await store.updateRun(runId, ["running"], { status: "succeeded", finishedAt: new Date() }), true);
     assert.deepEqual(await store.findRun(runId, true), { conversationId: conversation.id, status: "succeeded" });

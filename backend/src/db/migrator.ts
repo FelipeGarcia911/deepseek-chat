@@ -5,6 +5,7 @@ import * as createAssistantReleaseModel from "./migrations/0002_create_assistant
 import * as hardenReleaseModelInvariants from "./migrations/0003_harden_release_model_invariants";
 import * as createConversationsMessagesRuns from "./migrations/0004_create_conversations_messages_runs";
 import * as hardenRunResponseInvariants from "./migrations/0005_harden_run_response_invariants";
+import * as addRunPromptTrace from "./migrations/0006_add_run_prompt_trace";
 
 const migrations = {
   "0001_create_workspaces_and_environments": createWorkspacesAndEnvironments,
@@ -12,6 +13,7 @@ const migrations = {
   "0003_harden_release_model_invariants": hardenReleaseModelInvariants,
   "0004_create_conversations_messages_runs": createConversationsMessagesRuns,
   "0005_harden_run_response_invariants": hardenRunResponseInvariants,
+  "0006_add_run_prompt_trace": addRunPromptTrace,
 };
 
 export function createMigrator<T>(db: Kysely<T>) {
