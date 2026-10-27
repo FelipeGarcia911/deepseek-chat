@@ -130,7 +130,13 @@ Backend layers are tested at their natural boundary:
 Model providers are tested through reusable contract suites in
 `backend/test/support/model-contract.ts`. Each suite registers the behavior any
 provider must guarantee; `model-gateway.test.ts` runs it against the
-deterministic fakes, and each real adapter will run the same suite.
+deterministic fakes, and each real adapter runs the same suite.
+`ollama-chat-model.test.ts` runs it against an emulated Ollama HTTP server on a
+local port (`test/support/ollama-server.ts`), so no model or network is needed.
+To also check a real Ollama, set `OLLAMA_CONTRACT_BASE_URL` to its API root
+(for example `http://localhost:11434/api`) (and optionally
+`OLLAMA_CONTRACT_MODEL`, default `llama3.2`) when running the backend tests;
+without it the live suite is not registered.
 
 Tests follow the repository rule against type assertions: invalid values for
 `CHECK` constraints are inserted with raw SQL, Node addresses are narrowed with

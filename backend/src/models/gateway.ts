@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface ChatCapabilities {
   streaming: boolean;
   toolCalling: boolean;
@@ -11,11 +13,18 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface GenerationParameters {
-  temperature?: number;
-  topP?: number;
-  maxOutputTokens?: number;
-}
+export const GenerationParameters = z.strictObject({
+  temperature: z.number().min(0).max(2).optional(),
+  topP: z.number().gt(0).max(1).optional(),
+  maxOutputTokens: z.number().int().positive().max(32_768).optional(),
+});
+export type GenerationParameters = z.infer<typeof GenerationParameters>;
+
+export const ModelSelection = z.strictObject({
+  model: z.string().trim().min(1).max(200),
+  defaultParameters: GenerationParameters.default({}),
+});
+export type ModelSelection = z.infer<typeof ModelSelection>;
 
 export interface ChatRequest {
   messages: ChatMessage[];

@@ -477,6 +477,8 @@ Still incomplete or only partial:
 
 **General description:** Move all Ollama request/response behavior into one adapter that implements the internal gateway.
 
+**Implementation:** `backend/src/models/providers/ollama/OllamaChatModel.ts` implements `ChatModel` from a provider-neutral `ModelSelection` (model plus validated default parameters) and an adapter-local `OllamaConnection` (`baseUrl` as the documented API root such as `http://localhost:11434/api` or `https://ollama.com/api`, optional bearer `apiKey`, `timeoutMs`). The mapping was checked against the official `/api/chat`, error and authentication documentation; `message.thinking` is discarded. Ollama DTOs are validated with Zod; `temperature`, `topP` and `maxOutputTokens` become `temperature`, `top_p` and `num_predict`, with request parameters overriding defaults. Generation and NDJSON streaming honor `AbortSignal` and the connection timeout. HTTP 400, 401/403, 404, 429 and 5xx, network failures, malformed or incomplete payloads and errors inside the stream become `ModelError` kinds. The shared contract suite runs against an emulated Ollama server, and against a real one when `OLLAMA_CONTRACT_BASE_URL` is set. No table, migration, global variable or `ConversationService` change was added; Model Profile persistence stays in P4.4. See [ADR-004](adr/004-own-the-model-gateway-contract.md#configuration-boundary).
+
 **Acceptance criteria:**
 
 - Controllers and use cases contain no Ollama-specific code.

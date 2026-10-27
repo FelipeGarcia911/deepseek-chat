@@ -65,6 +65,33 @@ against the fakes now and against every real adapter later, asserting only what
 any provider must guarantee (non-empty content, deltas equal to the final
 result, cancellation, vector shape and determinism), not exact wording.
 
+### Configuration boundary
+
+Application and domain configuration stay provider-neutral. `ModelSelection`
+(`model` plus validated `defaultParameters`) is the only model configuration an
+adapter receives from outside, alongside an adapter-local resolved connection.
+Provider DTOs, connection fields and option names never leave
+`backend/src/models/providers/<provider>/`:
+
+| Neutral (gateway)          | Ollama adapter (`providers/ollama`)                           |
+| -------------------------- | ------------------------------------------------------------- |
+| `ModelSelection.model`     | `model` in `/api/chat`                                        |
+| `temperature`              | `options.temperature`                                         |
+| `topP`                     | `options.top_p`                                               |
+| `maxOutputTokens`          | `options.num_predict`                                         |
+| `ChatMessage`              | `messages[]` with the same roles                              |
+| `stream()`                 | `stream: true`, NDJSON lines                                  |
+| connection (adapter-local) | `OllamaConnection`: `baseUrl`, optional `apiKey`, `timeoutMs` |
+
+Request parameters override the selection defaults. `baseUrl` is the API root as
+Ollama documents it (`http://localhost:11434/api` locally,
+`https://ollama.com/api` in the cloud with `apiKey` sent as `Authorization: Bearer`);
+the adapter appends `/chat`. Reasoning returned in `message.thinking` is
+deliberately discarded, so hidden reasoning never reaches Runs. Persisted Model Profiles,
+`connectionRef` resolution to secrets and the registry that builds the right
+adapter for a profile belong to P4.4 (and P3.7 once a second provider exists);
+until then use cases receive a `ChatModel` and never branch on a provider name.
+
 ## Consequences
 
 Switching or adding a provider means one adapter plus a passing contract suite;
